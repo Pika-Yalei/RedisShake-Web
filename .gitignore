@@ -1,0 +1,7 @@
+dist/
+bin/
+*.log
+*.db
+*.db-shm
+*.db-wal
+.redis-shake-web/

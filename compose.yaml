@@ -1,0 +1,29 @@
+services:
+  runner:
+    build: .
+    image: redisshake-web:local
+    command: ["runner", "--data-dir", "/data", "--socket-dir", "/run/redisshake", "--redis-shake", "/app/redis-shake"]
+    volumes:
+      - redisshake-data:/data
+      - redisshake-socket:/run/redisshake
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/app/redis-shake-web", "status", "--socket-dir", "/run/redisshake"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  web:
+    image: redisshake-web:local
+    command: ["web", "--socket-dir", "/run/redisshake", "--listen", "0.0.0.0:8080"]
+    volumes:
+      - redisshake-socket:/run/redisshake
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      runner:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redisshake-data:
+  redisshake-socket:

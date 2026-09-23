@@ -1,0 +1,7 @@
+.git
+dist
+bin
+*.log
+*.db
+*.db-shm
+*.db-wal
