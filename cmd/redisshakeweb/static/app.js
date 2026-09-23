@@ -1,5 +1,7 @@
+import { showErrorDialog } from './dialog.js';
+
 const root = document.querySelector('#app');
-const state = { page: 'tasks', session: null, adminUsername: '', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], message: '', error: false, selectedRun: null, logRun: null, refresh: null };
+const state = { page: 'tasks', session: null, adminUsername: '', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], message: '', selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
   database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
@@ -16,8 +18,17 @@ const lines = value => String(value ?? '').split(/\r?\n/).map(x => x.trim()).fil
 const badge = (value) => `<span class="badge ${esc(value)}">${esc({RUNNING:'运行中',STARTING:'启动中',STOPPING:'停止中',STOPPED:'已停止',FAILED:'失败',FULL_SYNC:'全量同步',INCREMENTAL:'增量同步',UNKNOWN:'阶段待识别'}[value] || value || '草稿')}</span>`;
 const field = (label, name, value='', type='text', hint='') => `<div class="field"><label for="${esc(name)}">${esc(label)}</label><input id="${esc(name)}" name="${esc(name)}" type="${esc(type)}" value="${esc(value)}" autocomplete="off">${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
 const area = (label, name, value='', hint='') => `<div class="field"><label for="${esc(name)}">${esc(label)}</label><textarea id="${esc(name)}" name="${esc(name)}">${esc(value)}</textarea>${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
-const message = () => state.message ? `<div class="banner ${state.error?'error':'success'}">${esc(state.message)}</div>` : '';
-const notice = (text, error=false) => { state.message=text; state.error=error; render(); };
+const message = () => state.message ? `<div class="banner success">${esc(state.message)}</div>` : '';
+const notice = (text, error=false) => {
+  if (error) {
+    state.message = '';
+    document.querySelector('.banner.success')?.remove();
+    showErrorDialog(text);
+    return;
+  }
+  state.message = text;
+  render();
+};
 const byId = id => document.getElementById(id);
 const on = (id, event, callback) => { const element=byId(id); if(element) element.addEventListener(event, callback); };
 const formData = id => Object.fromEntries(new FormData(byId(id)).entries());
@@ -72,7 +83,7 @@ function renderBootstrap() {
 
 function renderLogin() {
   root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">欢迎回来</span><h1>管理员登录</h1><p class="muted">登录后管理连接与同步任务。</p></div>${message()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form><div class="actions"><button class="ghost" id="forgot-password">忘记密码</button></div></div></div>`;
-  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);state.message='';await loadLists();state.page='tasks';render();}catch(error){notice(error.message,true);}});
+  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);state.message='';await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
   on('forgot-password','click',()=>{state.page='reset';state.message='';render();});
 }
 
@@ -108,7 +119,7 @@ function renderConnectionForm() {
   renderExtra();on('kind','change',renderExtra);
   on('back-connections','click',()=>{state.page='connections';state.message='';render();});
   const input=()=>({...formData('connection-form'),id:c.id});
-  on('test-connection','click',async()=>{try{const checks=await send('/connections/test',input());byId('connection-checks').innerHTML=checksHTML(checks);}catch(error){byId('connection-checks').textContent=error.message;}});
+  on('test-connection','click',async()=>{try{const checks=await send('/connections/test',input());byId('connection-checks').innerHTML=checksHTML(checks);}catch(error){notice(error.message,true);}});
   on('connection-form','submit',async event=>{event.preventDefault();const draft=input();state.editing={...c,...draft,password:'',sentinelPassword:''};try{await send(c.id?'/connections/'+c.id:'/connections',draft,c.id?'PUT':'POST');await loadLists();state.page='connections';notice('连接已保存');}catch(error){notice(error.message,true);}});
 }
 
