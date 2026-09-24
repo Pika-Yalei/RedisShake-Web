@@ -151,6 +151,19 @@ func openStore(dir string) (*store, error) {
 			return nil, err
 		}
 	}
+	var adminID int
+	err = db.QueryRow("SELECT id FROM admin WHERE id=1").Scan(&adminID)
+	if errors.Is(err, sql.ErrNoRows) {
+		var hash string
+		hash, err = passwordHash(defaultAdminPassword)
+		if err == nil {
+			_, err = db.Exec("INSERT INTO admin(id,username,password_hash) VALUES(1,?,?)", defaultAdminUsername, hash)
+		}
+	}
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("initialize default administrator: %w", err)
+	}
 	return &store{db: db, aead: aead, dir: dir}, nil
 }
 

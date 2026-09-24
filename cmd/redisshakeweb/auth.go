@@ -22,7 +22,11 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-const cookieName = "redisshake_web_session"
+const (
+	cookieName           = "redisshake_web_session"
+	defaultAdminUsername = "admin"
+	defaultAdminPassword = "RedisShake@123456"
+)
 
 var adminUsernamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{2,31}$`)
 

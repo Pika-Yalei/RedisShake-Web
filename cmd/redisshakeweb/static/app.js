@@ -83,7 +83,7 @@ function renderBootstrap() {
 
 function renderLogin() {
   root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">欢迎回来</span><h1>管理员登录</h1><p class="muted">登录后管理连接与同步任务。</p></div>${message()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form><div class="actions"><button class="ghost" id="forgot-password">忘记密码</button></div></div></div>`;
-  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);state.message='';await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
+  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);state.message=credentials.username==='admin'&&credentials.password==='RedisShake@123456'?'当前使用默认密码，请到“设置”中修改。':'';await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
   on('forgot-password','click',()=>{state.page='reset';state.message='';render();});
 }
 

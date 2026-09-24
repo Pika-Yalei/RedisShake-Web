@@ -12,7 +12,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func TestInitializeAdministratorAccount(t *testing.T) {
+func TestDefaultAdministratorAccount(t *testing.T) {
 	st, err := openStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -32,24 +32,21 @@ func TestInitializeAdministratorAccount(t *testing.T) {
 	if crossOriginResult.Code != http.StatusForbidden {
 		t.Fatalf("cross-origin initialization: %d", crossOriginResult.Code)
 	}
-	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"1invalid","password":"valid-password-123"}`); w.Code != http.StatusBadRequest {
-		t.Fatalf("invalid account: %d %s", w.Code, w.Body.String())
-	}
-	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"audit_admin","password":"valid-password-123"}`); w.Code != http.StatusCreated {
-		t.Fatalf("initialize: %d %s", w.Code, w.Body.String())
+	if w := request(http.MethodGet, "/api/bootstrap/status", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"initialized":true`) {
+		t.Fatalf("default account initialization status: %d %s", w.Code, w.Body.String())
 	}
 	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"second_admin","password":"valid-password-123"}`); w.Code != http.StatusConflict {
-		t.Fatalf("second initialization: %d %s", w.Code, w.Body.String())
+		t.Fatalf("second administrator initialization: %d %s", w.Code, w.Body.String())
 	}
-	if w := request(http.MethodPost, "/api/login", `{"username":"admin","password":"valid-password-123"}`); w.Code != http.StatusUnauthorized {
-		t.Fatalf("default account should not authenticate: %d", w.Code)
+	if w := request(http.MethodPost, "/api/login", `{"username":"admin","password":"wrong-password"}`); w.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong default password: %d", w.Code)
 	}
-	w := request(http.MethodPost, "/api/login", `{"username":"audit_admin","password":"valid-password-123"}`)
+	w := request(http.MethodPost, "/api/login", `{"username":"admin","password":"RedisShake@123456"}`)
 	if w.Code != http.StatusOK {
-		t.Fatalf("custom account login: %d %s", w.Code, w.Body.String())
+		t.Fatalf("default account login: %d %s", w.Code, w.Body.String())
 	}
 	var loggedIn map[string]string
-	if err := json.Unmarshal(w.Body.Bytes(), &loggedIn); err != nil || loggedIn["username"] != "audit_admin" {
+	if err := json.Unmarshal(w.Body.Bytes(), &loggedIn); err != nil || loggedIn["username"] != "admin" {
 		t.Fatalf("login returned wrong account: %s, %v", w.Body.String(), err)
 	}
 	me := httptest.NewRecorder()
@@ -58,7 +55,7 @@ func TestInitializeAdministratorAccount(t *testing.T) {
 		req.AddCookie(cookie)
 	}
 	handler.ServeHTTP(me, req)
-	if me.Code != http.StatusOK || !strings.Contains(me.Body.String(), `"username":"audit_admin"`) {
+	if me.Code != http.StatusOK || !strings.Contains(me.Body.String(), `"username":"admin"`) {
 		t.Fatalf("current session: %d %s", me.Code, me.Body.String())
 	}
 }
