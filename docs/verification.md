@@ -1,12 +1,12 @@
 # 当前实现与验证记录
 
-日期：2026-09-23。当前记录是开发环境小数据量冒烟测试，不能代替容量、长期运行与生产网络测试。
+日期：2026-09-24。当前记录是开发环境小数据量冒烟测试，不能代替容量、长期运行与生产网络测试。
 
 ## 实现范围
 
 Go 单文件 Web 入口与常驻执行器、SQLite 连接和任务存储、AES-GCM 凭据加密、单管理员初始化/登录/密码重置、原生 JavaScript 中文界面、连接管理、四步任务向导、预检、运行历史和原始日志、任务启动/停止/重新全量/复制/删除、按目标 DB 二次确认清理均已写入代码。Web 与执行器通过仅本机 Unix socket 通信；Web 进程重启后可重新连接仍在运行的执行器和 RedisShake 进程。执行器重启后不会自动续传，原运行标记中断，需人工重新全量。
 
-内核固定为 RedisShake v4.6.2，源码归档 SHA-256 为 `c6c7de3a76b7bf4f18e494ffb40f1d09287622c4574d4da41fc1244a2dcc0b3f`，官方标签所指提交为 `f20f28e6f2679e71a213904d2c74ceb521e19551`。源码已复制到 `third_party/redis-shake` 并应用仓库补丁：给增量条目标记来源，使命令过滤只作用于增量；添加 Web 执行器存活检测、禁止内核重新展开配置中的密码变量、为降级 RESP 覆盖路径先删除旧 Key，以及对未过滤的整库清空命令失败停止。`scripts/build.sh` 直接编译仓库内的内核源码。
+内核固定为 RedisShake v4.6.2，源码归档 SHA-256 为 `c6c7de3a76b7bf4f18e494ffb40f1d09287622c4574d4da41fc1244a2dcc0b3f`，官方标签所指提交为 `f20f28e6f2679e71a213904d2c74ceb521e19551`。内核入口在 `cmd/redis-shake`，实现与测试在根级 `internal`，和 Web 共用一个 Go 模块。本项目的内核改动包括：给增量条目标记来源，使增量命令过滤不影响全量；添加 Web 执行器存活检测、禁止内核重新展开配置中的密码变量、为降级 RESP 覆盖路径先删除旧 Key，以及对未过滤的整库清空命令失败停止。`scripts/build.sh` 直接编译本仓库的两个入口。
 
 ## 实测结果
 
@@ -32,7 +32,7 @@ Go 单文件 Web 入口与常驻执行器、SQLite 连接和任务存储、AES-G
 
 构建与检查：`go test -race ./...`、`go vet ./...`、`node --check cmd/redisshakeweb/static/app.js`、补丁后的 `go test ./internal/filter ./internal/rdb` 通过。`darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64` 四个组合交叉构建通过；四个 `.tar.gz` 包的 SHA-256 校验通过。实际运行仅覆盖 macOS/arm64 与 Docker Linux/amd64。Docker Compose 构建、启动、健康检查通过。并发冒烟时第六个任务被 5 任务上限阻止，未做满负载性能验收。
 
-2026-09-24 源码入库复测：仓库内内核源码与上游 v4.6.2 归档逐文件比较，差异仅为记录在 `patches/redis-shake-v4.6.2.patch` 中的修改和新增测试；在 Web 与内核两个 Go 模块分别运行 `go test ./...` 均通过。`bash scripts/package.sh` 再次完成四个平台打包；`docker build --platform linux/arm64` 使用仓库内源码构建成功，构建日志显示 `linux/arm64`，镜像架构检查为 `arm64/linux`。这些是构建检查，不代表 Linux/arm64 实机运行验收。
+2026-09-24 内核整合复测：最初复制的内核源码与上游 v4.6.2 归档逐文件比较，差异仅为本项目功能修改和新增测试。内核并入项目根级 Go 模块并更新导入路径后，从仓库根目录运行 `go test -race ./...` 与 `go vet ./...` 均通过；`bash scripts/package.sh` 完成四个平台打包，发布包包含 RedisShake 许可证且不再附带旧补丁文件。`docker build --platform linux/arm64` 使用统一模块构建成功，镜像架构检查为 `arm64/linux`。开发脚本在隔离数据目录和端口启动，`/api/bootstrap/status` 返回 200，随后停止测试服务。这些是构建与启动检查，不代表 Linux/arm64 实机运行验收。
 
 ## 尚需验收
 

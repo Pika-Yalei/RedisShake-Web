@@ -1,5 +1,6 @@
 .git
 .redis-shake-web
+.DS_Store
 dist
 bin
 *.log

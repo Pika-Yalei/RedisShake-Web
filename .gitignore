@@ -5,3 +5,4 @@ bin/
 *.db-shm
 *.db-wal
 .redis-shake-web/
+.DS_Store
