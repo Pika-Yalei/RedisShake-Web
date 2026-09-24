@@ -7,7 +7,6 @@ const iconPaths = {
   database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
   connections: '<circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4m-8 6 8 4"/>',
-  account: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   eye: '<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="m3 3 18 18M10.6 6.1A11 11 0 0 1 12 6c6.4 0 10 6 10 6a16 16 0 0 1-4 4.5M6 6.9C3.4 8.7 2 12 2 12s3.6 6 10 6c1.2 0 2.3-.2 3.3-.5"/><path d="M10 10a3 3 0 0 0 4 4"/>'
@@ -72,10 +71,9 @@ async function loadLists() {
 }
 
 function shell(title, subtitle, action, content) {
-  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web<small>数据迁移工作台</small></span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button><button id="nav-account">${icon('account')}<span>账号</span></button></nav></aside><main class="main"><div class="topline"><div><span class="eyebrow">工作台</span><h1>${esc(title)}</h1><span class="muted">${esc(subtitle)}</span></div>${action||''}</div>${content}</main></div>`;
+  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web<small>数据迁移工作台</small></span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main"><div class="topline"><div><span class="eyebrow">工作台</span><h1>${esc(title)}</h1><span class="muted">${esc(subtitle)}</span></div>${action||''}</div>${content}</main></div>`;
   on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
   on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
-  on('nav-account','click',showAccountDialog);
 }
 
 function render() {
@@ -194,18 +192,6 @@ async function loadRunDetails(){
     else{state.selectedRun=run.id;summary.innerHTML=`${badge(run.status)}　${badge(run.phase)}<p>开始：${esc(run.startedAt)}${run.endedAt?'　结束：'+esc(run.endedAt):''}</p>${run.error?`<div class="banner error">${esc(run.error)}</div>`:''}`;const busy=['RUNNING','STARTING','STOPPING'].includes(run.status);byId('run-stop').disabled=!busy;byId('run-start').disabled=busy;byId('run-edit').disabled=busy;byId('run-delete').disabled=busy;byId('run-clear').disabled=busy;try{const result=await api('/runs/'+state.logRun+'/logs');log.textContent=(result.truncated?'…仅显示末尾日志\n':'')+result.text;}catch(error){log.textContent=error.message;}}
   }catch(error){const summary=byId('run-summary');if(summary)summary.textContent='执行器暂不可用：'+error.message;}
   if(state.page==='task')state.refresh=setTimeout(loadRunDetails,4000);
-}
-
-function showAccountDialog(){
-  const dialog=document.createElement('dialog');
-  dialog.className='account-dialog';
-  dialog.innerHTML=`<div class="account-dialog-content"><div class="account-dialog-heading"><h2>账号</h2><button class="ghost" type="button" id="close-account" aria-label="关闭">关闭</button></div><p class="muted">${esc(state.adminUsername)}</p><form id="password-form" class="stack"><h3>修改密码</h3>${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password')}<button class="primary">修改密码</button></form><button class="ghost account-logout" id="logout" type="button">退出登录</button></div>`;
-  document.body.append(dialog);
-  dialog.addEventListener('close',()=>dialog.remove());
-  dialog.querySelector('#close-account').addEventListener('click',()=>dialog.close());
-  dialog.querySelector('#password-form').addEventListener('submit',async event=>{event.preventDefault();try{await send('/password',formData('password-form'));dialog.close();state.session=null;state.page='login';notice('密码已修改，请重新登录');}catch(error){showErrorDialog(error.message);}});
-  dialog.querySelector('#logout').addEventListener('click',async()=>{try{await send('/logout',{});}catch{}dialog.close();state.session=null;state.page='login';render();});
-  dialog.showModal();
 }
 
 boot();
