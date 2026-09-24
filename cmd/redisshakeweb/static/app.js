@@ -107,9 +107,9 @@ function renderLogin() {
 }
 
 function renderTasks() {
-  shell([sections.tasks],state.tasks.length ? `<button class="primary" id="new-task">${icon('plus')} 创建任务</button>` : '',
-    state.tasks.length ? state.tasks.map(t=>`<div class="list-item"><div class="details"><strong>${esc(t.name)} <span data-run-status="${esc(t.id)}" class="badge">加载中</span></strong><span class="muted">${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}　·　${esc(t.updatedAt||'未运行')}</span></div><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`).join('') : `<div class="empty"><strong>还没有同步任务</strong><p>先创建源端和目标端连接，再用向导配置同步。</p><button class="primary" id="empty-new">创建同步任务</button></div>`);
-  on('new-task','click',newTask);on('empty-new','click',newTask);
+  shell([sections.tasks],`<button class="primary" id="new-task">${icon('plus')} 新建任务</button>`,
+    state.tasks.length ? state.tasks.map(t=>`<div class="list-item"><div class="details"><strong>${esc(t.name)} <span data-run-status="${esc(t.id)}" class="badge">加载中</span></strong><span class="muted">${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}　·　${esc(t.updatedAt||'未运行')}</span></div><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`).join('') : `<div class="empty"><strong>暂无同步任务</strong></div>`);
+  on('new-task','click',newTask);
   document.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>openTask(button.dataset.task)));
   state.tasks.forEach(async t=>{try{const runs=await api('/tasks/'+t.id+'/runs');const label=document.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);if(label){const status=runs[0]?.status||'草稿';label.textContent={RUNNING:'运行中',FAILED:'失败',STOPPED:'已停止',STARTING:'启动中',STOPPING:'停止中'}[status]||status;label.className='badge '+status;}}catch{}});
 }
@@ -118,7 +118,7 @@ function newTask(){state.editing={name:'',sourceId:'',targetId:'',dbMap:{'0':0},
 
 function renderConnections() {
   shell([sections.connections],`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
-    state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>还没有 Redis 连接</strong><p>添加连接后即可在任务向导中选择。</p></div>`);
+    state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>暂无 Redis 连接</strong></div>`);
   on('new-connection','click',()=>{state.editing={kind:'standalone'};state.page='connection';render();});
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
