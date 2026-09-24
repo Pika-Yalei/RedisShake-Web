@@ -8,7 +8,9 @@ const iconPaths = {
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
   connections: '<circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4m-8 6 8 4"/>',
   settings: '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="2" fill="currentColor" stroke="none"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>'
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  eye: '<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="m3 3 18 18M10.6 6.1A11 11 0 0 1 12 6c6.4 0 10 6 10 6a16 16 0 0 1-4 4.5M6 6.9C3.4 8.7 2 12 2 12s3.6 6 10 6c1.2 0 2.3-.2 3.3-.5"/><path d="M10 10a3 3 0 0 0 4 4"/>'
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]}</svg>`;
 const authBrand = () => `<div class="auth-brand"><span class="brand-mark">${icon('database')}</span><span>RedisShake Web</span></div>`;
@@ -16,7 +18,11 @@ const authBrand = () => `<div class="auth-brand"><span class="brand-mark">${icon
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const lines = value => String(value ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 const badge = (value) => `<span class="badge ${esc(value)}">${esc({RUNNING:'运行中',STARTING:'启动中',STOPPING:'停止中',STOPPED:'已停止',FAILED:'失败',FULL_SYNC:'全量同步',INCREMENTAL:'增量同步',UNKNOWN:'阶段待识别'}[value] || value || '草稿')}</span>`;
-const field = (label, name, value='', type='text', hint='') => `<div class="field"><label for="${esc(name)}">${esc(label)}</label><input id="${esc(name)}" name="${esc(name)}" type="${esc(type)}" value="${esc(value)}" autocomplete="off">${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
+const field = (label, name, value='', type='text', hint='') => {
+  const input = `<input id="${esc(name)}" name="${esc(name)}" type="${esc(type)}" value="${esc(value)}" autocomplete="off">`;
+  const control = type === 'password' ? `<div class="password-control">${input}<button class="password-toggle" type="button" data-password-toggle="${esc(name)}" aria-label="显示密码" aria-pressed="false" title="显示密码">${icon('eye')}</button></div>` : input;
+  return `<div class="field"><label for="${esc(name)}">${esc(label)}</label>${control}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
+};
 const area = (label, name, value='', hint='') => `<div class="field"><label for="${esc(name)}">${esc(label)}</label><textarea id="${esc(name)}" name="${esc(name)}">${esc(value)}</textarea>${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
 const message = () => state.message ? `<div class="banner success">${esc(state.message)}</div>` : '';
 const notice = (text, error=false) => {
@@ -32,6 +38,18 @@ const notice = (text, error=false) => {
 const byId = id => document.getElementById(id);
 const on = (id, event, callback) => { const element=byId(id); if(element) element.addEventListener(event, callback); };
 const formData = id => Object.fromEntries(new FormData(byId(id)).entries());
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-password-toggle]');
+  if (!button) return;
+  const input = byId(button.dataset.passwordToggle);
+  if (!input) return;
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  button.setAttribute('aria-label', visible ? '隐藏密码' : '显示密码');
+  button.setAttribute('aria-pressed', String(visible));
+  button.title = visible ? '隐藏密码' : '显示密码';
+  button.innerHTML = icon(visible ? 'eyeOff' : 'eye');
+});
 
 async function api(path, options={}) {
   const opts = {...options, credentials:'same-origin', headers:{...(options.body ? {'Content-Type':'application/json'} : {}), ...(state.session && options.method && options.method !== 'GET' ? {'X-CSRF-Token':state.session.csrf} : {}), ...options.headers}};
