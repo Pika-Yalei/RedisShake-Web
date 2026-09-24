@@ -103,16 +103,16 @@ p { line-height: 1.55; }
 .badge.STARTING, .badge.STOPPING, .badge.FULL_SYNC { color: var(--accent); background: rgba(0, 122, 255, .1); }
 .banner { margin-bottom: 18px; padding: 12px 15px; border: 1px solid rgba(0, 122, 255, .13); border-radius: 11px; color: var(--accent); background: rgba(0, 122, 255, .065); font-size: 13px; animation: surface-in .24s ease-out both; }
 .banner.error { color: var(--danger); border-color: rgba(215, 0, 21, .17); background: rgba(215, 0, 21, .07); }
-.banner.success { color: var(--success); border-color: rgba(36, 138, 80, .16); background: rgba(36, 138, 80, .07); }
-.error-dialog { width: min(420px, calc(100vw - 32px)); max-width: none; max-height: min(80dvh, 600px); padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--surface); box-shadow: 0 24px 70px rgba(0, 0, 0, .2); }
-.error-dialog[open] { animation: surface-in .22s cubic-bezier(.2,.8,.2,1) both; }
-.error-dialog::backdrop { background: rgba(12, 18, 28, .42); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
-.error-dialog-content { padding: 27px; }
-.error-dialog-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--danger); background: rgba(215, 0, 21, .09); font-size: 22px; font-weight: 650; line-height: 1; }
-.error-dialog h2 { margin: 17px 0 8px; font-size: 19px; }
-.error-dialog p { margin: 0; color: var(--secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
-.error-dialog-actions { display: flex; justify-content: flex-end; margin-top: 25px; }
-.error-dialog-actions button { min-width: 92px; }
+.feedback-dialog { width: min(420px, calc(100vw - 32px)); max-width: none; max-height: min(80dvh, 600px); padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--surface); box-shadow: 0 24px 70px rgba(0, 0, 0, .2); }
+.feedback-dialog[open] { animation: surface-in .22s cubic-bezier(.2,.8,.2,1) both; }
+.feedback-dialog::backdrop { background: rgba(12, 18, 28, .42); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+.feedback-dialog-content { padding: 27px; }
+.feedback-dialog-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--accent); background: rgba(0, 122, 255, .09); font-size: 22px; font-weight: 650; line-height: 1; }
+.feedback-dialog[data-tone="error"] .feedback-dialog-icon { color: var(--danger); background: rgba(215, 0, 21, .09); }
+.feedback-dialog h2 { margin: 17px 0 8px; font-size: 19px; }
+.feedback-dialog p { margin: 0; color: var(--secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-dialog-actions { display: flex; justify-content: flex-end; margin-top: 25px; }
+.feedback-dialog-actions button { min-width: 92px; }
 .empty { padding: 46px 24px 35px; border: 1px dashed var(--line); border-radius: 13px; color: var(--secondary); text-align: center; }
 .empty strong { display: block; margin-bottom: 5px; color: var(--ink); font-size: 15px; font-weight: 650; }
 .empty p { margin: 0 auto 21px; max-width: 43ch; }
@@ -170,8 +170,8 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
   .topline { flex-direction: column; align-items: stretch; }
   .topline > button { align-self: flex-start; }
   .auth-card { padding: 24px; }
-  .error-dialog-content { padding: 24px; }
-  .error-dialog-actions button { width: 100%; }
+  .feedback-dialog-content { padding: 24px; }
+  .feedback-dialog-actions button { width: 100%; }
   .actions .danger { margin-left: 0; }
 }
 

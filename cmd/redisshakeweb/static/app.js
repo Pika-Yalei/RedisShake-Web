@@ -1,7 +1,7 @@
-import { showErrorDialog } from './dialog.js';
+import { showErrorDialog, showInfoDialog } from './dialog.js?v=feedback-dialog';
 
 const root = document.querySelector('#app');
-const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], message: '', selectedRun: null, logRun: null, refresh: null };
+const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
   database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
@@ -24,16 +24,13 @@ const field = (label, name, value='', type='text', hint='') => {
   return `<div class="field"><label for="${esc(name)}">${esc(label)}</label>${control}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
 };
 const area = (label, name, value='', hint='') => `<div class="field"><label for="${esc(name)}">${esc(label)}</label><textarea id="${esc(name)}" name="${esc(name)}">${esc(value)}</textarea>${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
-const message = () => state.message ? `<div class="banner success">${esc(state.message)}</div>` : '';
 const notice = (text, error=false) => {
   if (error) {
-    state.message = '';
-    document.querySelector('.banner.success')?.remove();
     showErrorDialog(text);
     return;
   }
-  state.message = text;
   render();
+  showInfoDialog(text);
 };
 const byId = id => document.getElementById(id);
 const on = (id, event, callback) => { const element=byId(id); if(element) element.addEventListener(event, callback); };
@@ -75,10 +72,10 @@ async function loadLists() {
 }
 
 function shell(title, subtitle, action, content) {
-  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web<small>数据迁移工作台</small></span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button><button id="nav-settings" class="${state.page==='settings'?'active':''}">${icon('settings')}<span>设置</span></button></nav><div class="sidebar-foot">本机执行器 <span class="foot-separator">·</span> 单管理员</div></aside><main class="main"><div class="topline"><div><span class="eyebrow">工作台</span><h1>${esc(title)}</h1><span class="muted">${esc(subtitle)}</span></div>${action||''}</div>${message()}${content}</main></div>`;
-  on('nav-tasks','click',async()=>{state.page='tasks';state.message='';await loadLists();render();});
-  on('nav-connections','click',async()=>{state.page='connections';state.message='';await loadLists();render();});
-  on('nav-settings','click',()=>{state.page='settings';state.message='';render();});
+  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web<small>数据迁移工作台</small></span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button><button id="nav-settings" class="${state.page==='settings'?'active':''}">${icon('settings')}<span>设置</span></button></nav><div class="sidebar-foot">本机执行器 <span class="foot-separator">·</span> 单管理员</div></aside><main class="main"><div class="topline"><div><span class="eyebrow">工作台</span><h1>${esc(title)}</h1><span class="muted">${esc(subtitle)}</span></div>${action||''}</div>${content}</main></div>`;
+  on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
+  on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
+  on('nav-settings','click',()=>{state.page='settings';render();});
 }
 
 function render() {
@@ -95,20 +92,20 @@ function render() {
 }
 
 function renderBootstrap() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div>${message()}<form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername)}${field('管理员密码','password','RedisShake@123456','password')}${field('再次输入密码','confirm','RedisShake@123456','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div><form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername)}${field('管理员密码','password','RedisShake@123456','password')}${field('再次输入密码','confirm','RedisShake@123456','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
   on('bootstrap-form','submit',async event=>{event.preventDefault();const d=formData('bootstrap-form');state.adminUsername=d.username;if(d.password!==d.confirm)return notice('两次输入的密码不一致',true);try{await send('/bootstrap/init',{username:d.username,password:d.password});state.page='login';notice('管理员账号已创建，请登录');}catch(error){notice(error.message,true);}});
 }
 
 function renderLogin() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}${message()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form><div class="actions"><button class="ghost" id="forgot-password">忘记密码</button></div></div></div>`;
-  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);state.message='';await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
-  on('forgot-password','click',()=>{state.page='reset';state.message='';render();});
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form><div class="actions"><button class="ghost" id="forgot-password">忘记密码</button></div></div></div>`;
+  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
+  on('forgot-password','click',()=>{state.page='reset';render();});
 }
 
 function renderReset() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">账号恢复</span><h1>重置管理员密码</h1><p class="muted">在部署机器执行 <code>redis-shake-web reset-password</code> 取得一次性重置码。Docker 部署请在 runner 容器中执行，并指定 <code>--data-dir /data</code>。</p></div>${message()}<form id="reset-form" class="stack">${field('重置码','code')}${field('新密码','newPassword','','password')}<button class="primary">设置新密码</button></form><div class="actions"><button class="ghost" id="back-login">返回登录</button></div></div></div>`;
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">账号恢复</span><h1>重置管理员密码</h1><p class="muted">在部署机器执行 <code>redis-shake-web reset-password</code> 取得一次性重置码。Docker 部署请在 runner 容器中执行，并指定 <code>--data-dir /data</code>。</p></div><form id="reset-form" class="stack">${field('重置码','code')}${field('新密码','newPassword','','password')}<button class="primary">设置新密码</button></form><div class="actions"><button class="ghost" id="back-login">返回登录</button></div></div></div>`;
   on('reset-form','submit',async event=>{event.preventDefault();try{await send('/password/reset',formData('reset-form'));state.page='login';notice('密码已重置，请重新登录');}catch(error){notice(error.message,true);}});
-  on('back-login','click',()=>{state.page='login';state.message='';render();});
+  on('back-login','click',()=>{state.page='login';render();});
 }
 
 function renderTasks() {
@@ -119,13 +116,13 @@ function renderTasks() {
   state.tasks.forEach(async t=>{try{const runs=await api('/tasks/'+t.id+'/runs');const label=document.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);if(label){const status=runs[0]?.status||'草稿';label.textContent={RUNNING:'运行中',FAILED:'失败',STOPPED:'已停止',STARTING:'启动中',STOPPING:'停止中'}[status]||status;label.className='badge '+status;}}catch{}});
 }
 function connectionName(id) { return state.connections.find(x=>x.id===id)?.name || '未选择连接'; }
-function newTask(){state.editing={name:'',sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};state.step=0;state.checks=[];state.page='wizard';state.message='';render();}
+function newTask(){state.editing={name:'',sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};state.step=0;state.checks=[];state.page='wizard';render();}
 
 function renderConnections() {
   shell('连接管理','保存并复用源端与目标端连接',`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
     `<div class="card"><h2>已保存的连接</h2>${state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>还没有 Redis 连接</strong><p>添加连接后即可在任务向导中选择。</p></div>`}</div>`);
-  on('new-connection','click',()=>{state.editing={kind:'standalone'};state.page='connection';state.message='';render();});
-  document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';state.message='';render();}));
+  on('new-connection','click',()=>{state.editing={kind:'standalone'};state.page='connection';render();});
+  document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
 }
 
@@ -135,7 +132,7 @@ function renderConnectionForm() {
     `<div class="card"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-extra"></div><div class="grid">${field('Redis ACL 用户名','username',c.username)}${field('Redis 密码','password','','password')}</div><div class="actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form><div id="connection-checks"></div></div>`);
   const renderExtra=()=>{const kind=byId('kind').value;byId('connection-extra').innerHTML=kind==='sentinel'?`<div class="grid">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${field('Sentinel ACL 用户名','sentinelUsername',c.sentinelUsername)}${field('Sentinel 密码','sentinelPassword','','password')}</div>`:`<div class="grid">${field(kind==='cluster'?'Cluster 入口节点 host:port':'Redis 地址 host:port','address',c.address)}</div>`;};
   renderExtra();on('kind','change',renderExtra);
-  on('back-connections','click',()=>{state.page='connections';state.message='';render();});
+  on('back-connections','click',()=>{state.page='connections';render();});
   const input=()=>({...formData('connection-form'),id:c.id});
   on('test-connection','click',async()=>{try{const checks=await send('/connections/test',input());byId('connection-checks').innerHTML=checksHTML(checks);}catch(error){notice(error.message,true);}});
   on('connection-form','submit',async event=>{event.preventDefault();const draft=input();state.editing={...c,...draft,password:'',sentinelPassword:''};try{await send(c.id?'/connections/'+c.id:'/connections',draft,c.id?'PUT':'POST');await loadLists();state.page='connections';notice('连接已保存');}catch(error){notice(error.message,true);}});
@@ -157,24 +154,24 @@ function renderWizard() {
   if(state.step===3)content=`<div class="grid3"><div><h3>任务</h3>${esc(t.name)}</div><div><h3>源 → 目标</h3>${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}</div><div><h3>目标策略</h3>${t.targetPolicy==='overwrite'?'覆盖同名 Key':'要求目标为空'}</div></div><div class="divider"></div><p class="muted">启动后执行一次全量迁移，并持续同步增量；浏览器关闭不停止任务。</p>`;
   shell(t.id?'编辑同步任务':'创建同步任务','四步完成连接、规则、预检和确认',`<button class="ghost" id="back-tasks">返回任务列表</button>`,
     `<div class="steps">${steps.map((s,i)=>`<span class="step ${i===state.step?'active':''}">${i+1} · ${s}</span>`).join('')}</div><div class="card">${content}<div class="actions">${state.step>0?'<button class="ghost" id="previous-step">上一步</button>':''}<button class="secondary" id="save-draft">保存草稿</button>${state.step<3?`<button class="primary" id="next-step">${state.step===1?'保存并预检':'下一步'}</button>`:'<button class="primary" id="start-sync">启动同步</button>'}</div></div>`);
-  on('back-tasks','click',async()=>{await loadLists();state.page='tasks';state.message='';render();});
-  on('previous-step','click',()=>{captureWizard();state.step--;state.message='';render();});
-  on('next-step','click',async()=>{try{captureWizard();if(state.step===0&&(!t.name||!t.sourceId||!t.targetId))throw new Error('请填写任务名称并选择源端和目标端');if(state.step===1){await saveWizard();await runChecks();}state.step++;state.message='';render();}catch(error){notice(error.message,true);}});
+  on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
+  on('previous-step','click',()=>{captureWizard();state.step--;render();});
+  on('next-step','click',async()=>{try{captureWizard();if(state.step===0&&(!t.name||!t.sourceId||!t.targetId))throw new Error('请填写任务名称并选择源端和目标端');if(state.step===1){await saveWizard();await runChecks();}state.step++;render();}catch(error){notice(error.message,true);}});
   on('save-draft','click',async()=>{try{captureWizard();await saveWizard();notice('草稿已保存');}catch(error){notice(error.message,true);}});
   on('rerun-checks','click',async()=>{try{await runChecks();notice('预检已更新');}catch(error){notice(error.message,true);}});
-  on('start-sync','click',async()=>{try{const run=await send('/tasks/'+t.id+'/start',{});state.task=t.id;state.selectedRun=run.id;state.page='task';state.message='同步任务已启动';await loadLists();render();}catch(error){if(error.details?.checks)state.checks=error.details.checks;notice(error.message,true);}});
+  on('start-sync','click',async()=>{try{const run=await send('/tasks/'+t.id+'/start',{});state.task=t.id;state.selectedRun=run.id;state.page='task';await loadLists();notice('同步任务已启动');}catch(error){if(error.details?.checks)state.checks=error.details.checks;notice(error.message,true);}});
 }
 function captureWizard(){if(!byId('wizard-form'))return;const d=formData('wizard-form');if(state.step===0)Object.assign(state.editing,{name:d.name,sourceId:d.sourceId,targetId:d.targetId});if(state.step===1){state.editing.dbMap=parseMap(d.dbMap);state.editing.rules={allowPrefixes:lines(d.allowPrefixes),blockPrefixes:lines(d.blockPrefixes),allowRegex:lines(d.allowRegex),blockRegex:lines(d.blockRegex),allowCommands:lines(d.allowCommands),blockCommands:lines(d.blockCommands)};state.editing.targetPolicy=d.targetPolicy;}}
 async function saveWizard(){const t=state.editing;if(!t.name)throw new Error('任务名称不能为空');const result=await send(t.id?'/tasks/'+t.id:'/tasks',t,t.id?'PUT':'POST');state.editing={...t,id:result.id};await loadLists();}
 async function runChecks(){state.checks=await send('/tasks/'+state.editing.id+'/preflight',{});}
 
-async function openTask(id){state.task=id;state.selectedRun=null;state.logRun=null;state.page='task';state.message='';await loadLists();render();}
+async function openTask(id){state.task=id;state.selectedRun=null;state.logRun=null;state.page='task';await loadLists();render();}
 function renderTask(){
   const t=state.tasks.find(x=>x.id===state.task);if(!t){state.page='tasks';render();return;}
   shell(t.name,`${connectionName(t.sourceId)} → ${connectionName(t.targetId)}`,`<button class="ghost" id="back-tasks">返回任务列表</button>`,
     `<div class="card"><h2>运行状态</h2><div id="run-summary" class="muted">正在读取运行记录…</div><div class="actions"><button class="primary" id="run-start">${state.selectedRun?'重新全量运行':'启动同步'}</button><button class="secondary" id="run-stop">停止</button><button class="ghost" id="run-edit">编辑</button><button class="ghost" id="run-copy">复制任务</button><button class="danger" id="run-delete">删除任务</button></div></div><div class="card"><h2>目标 DB 清理</h2><p class="muted">此操作会清空所选目标 DB 内的所有 Key，不受任务 Key 规则限制。执行前需二次确认。</p><button class="danger" id="run-clear">清空所选目标 DB</button></div><div class="card"><div class="row"><h2>RedisShake 日志</h2><div class="actions" style="margin:0"><select id="log-run-select" aria-label="选择运行记录" style="min-width:190px"></select><button class="ghost" id="refresh-logs">刷新</button></div></div><pre class="log" id="run-log">暂无运行记录</pre></div>`);
   on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
-  on('run-edit','click',()=>{state.editing=structuredClone(t);state.step=0;state.page='wizard';state.message='';render();});
+  on('run-edit','click',()=>{state.editing=structuredClone(t);state.step=0;state.page='wizard';render();});
   on('run-copy','click',async()=>{try{await send('/tasks/'+t.id+'/copy',{});await loadLists();notice('任务已复制为草稿');}catch(error){notice(error.message,true);}});
   on('run-delete','click',async()=>{if(!confirm('删除任务记录？不会删除 Redis 数据。'))return;try{await api('/tasks/'+t.id,{method:'DELETE'});await loadLists();state.page='tasks';notice('任务已删除');}catch(error){notice(error.message,true);}});
   on('run-start','click',async()=>{if(state.selectedRun&&!confirm('重新全量运行会从源端重新读取数据，不会断点续传。继续？'))return;try{const run=await send('/tasks/'+t.id+'/start',{});state.selectedRun=run.id;notice('同步已启动');}catch(error){notice(error.message,true);}});
@@ -211,7 +208,7 @@ async function loadRunDetails(){
 function renderSettings(){shell('设置','管理员与当前版本',`<button class="ghost" id="logout">退出登录</button>`,
   `<div class="card"><h2>修改管理员密码</h2><form id="password-form" class="stack" style="max-width:450px">${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password')}<button class="primary">修改密码</button></form></div><div class="card"><h2>运行说明</h2><p>单向全量迁移后持续同步增量。失败后需要人工确认并重新全量运行。RedisShake 原始日志保留原文。</p><p class="muted">当前 Web 版本处于开发阶段；内核代码按固定版本集成编译。</p></div>`);
   on('password-form','submit',async event=>{event.preventDefault();try{await send('/password',formData('password-form'));state.session=null;state.page='login';notice('密码已修改，请重新登录');}catch(error){notice(error.message,true);}});
-  on('logout','click',async()=>{try{await send('/logout',{});}catch{}state.session=null;state.page='login';state.message='';render();});
+  on('logout','click',async()=>{try{await send('/logout',{});}catch{}state.session=null;state.page='login';render();});
 }
 
 boot();
