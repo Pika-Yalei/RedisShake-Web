@@ -70,8 +70,8 @@ async function loadLists() {
   [state.connections,state.tasks] = await Promise.all([api('/connections'),api('/tasks')]);
 }
 
-function shell(title, subtitle, action, content) {
-  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${brandLogo()}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><div><h1>${esc(title)}</h1>${subtitle?`<span class="muted">${esc(subtitle)}</span>`:''}</div>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
+function shell(title, action, content) {
+  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${brandLogo()}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><h1>${esc(title)}</h1>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
   on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
   on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
 }
@@ -98,7 +98,7 @@ function renderLogin() {
 }
 
 function renderTasks() {
-  shell('同步任务','',state.tasks.length ? `<button class="primary" id="new-task">${icon('plus')} 创建任务</button>` : '',
+  shell('同步任务',state.tasks.length ? `<button class="primary" id="new-task">${icon('plus')} 创建任务</button>` : '',
     state.tasks.length ? state.tasks.map(t=>`<div class="list-item"><div class="details"><strong>${esc(t.name)} <span data-run-status="${esc(t.id)}" class="badge">加载中</span></strong><span class="muted">${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}　·　${esc(t.updatedAt||'未运行')}</span></div><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`).join('') : `<div class="empty"><strong>还没有同步任务</strong><p>先创建源端和目标端连接，再用向导配置同步。</p><button class="primary" id="empty-new">创建同步任务</button></div>`);
   on('new-task','click',newTask);on('empty-new','click',newTask);
   document.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>openTask(button.dataset.task)));
@@ -108,7 +108,7 @@ function connectionName(id) { return state.connections.find(x=>x.id===id)?.name 
 function newTask(){state.editing={name:'',sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};state.step=0;state.checks=[];state.page='wizard';render();}
 
 function renderConnections() {
-  shell('连接管理','',`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
+  shell('连接管理',`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
     state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>还没有 Redis 连接</strong><p>添加连接后即可在任务向导中选择。</p></div>`);
   on('new-connection','click',()=>{state.editing={kind:'standalone'};state.page='connection';render();});
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
@@ -117,7 +117,7 @@ function renderConnections() {
 
 function renderConnectionForm() {
   const c=state.editing||{};
-  shell(c.id?'编辑连接':'新建连接',c.id?'密码留空表示保留现有密码':'密码保存后不会回显',`<button class="ghost" id="back-connections">返回连接管理</button>`,
+  shell(c.id?'编辑连接':'新建连接',`<button class="ghost" id="back-connections">返回连接管理</button>`,
     `<div class="card"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-extra"></div><div class="grid">${field('Redis ACL 用户名','username',c.username)}${field('Redis 密码','password','','password')}</div><div class="actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form><div id="connection-checks"></div></div>`);
   const renderExtra=()=>{const kind=byId('kind').value;byId('connection-extra').innerHTML=kind==='sentinel'?`<div class="grid">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${field('Sentinel ACL 用户名','sentinelUsername',c.sentinelUsername)}${field('Sentinel 密码','sentinelPassword','','password')}</div>`:`<div class="grid">${field(kind==='cluster'?'Cluster 入口节点 host:port':'Redis 地址 host:port','address',c.address)}</div>`;};
   renderExtra();on('kind','change',renderExtra);
@@ -141,7 +141,7 @@ function renderWizard() {
   if(state.step===1)content=`<form id="wizard-form" class="stack">${area('DB 映射','dbMap',mapText(t.dbMap),'每行一组，例如 0:0；不能多个源 DB 指向同一目标 DB。')}<div class="grid">${area('包含的 Key 前缀','allowPrefixes',(r.allowPrefixes||[]).join('\n'),'每行一个；留空表示全部通过。')}${area('排除的 Key 前缀','blockPrefixes',(r.blockPrefixes||[]).join('\n'))}${area('包含的 Key 正则','allowRegex',(r.allowRegex||[]).join('\n'),'每行一个 Go 正则表达式。')}${area('排除的 Key 正则','blockRegex',(r.blockRegex||[]).join('\n'))}${area('仅增量：包含命令','allowCommands',(r.allowCommands||[]).join('\n'),'每行一个命令；不影响全量导入。')}${area('仅增量：排除命令','blockCommands',(r.blockCommands||[]).join('\n'),'多 Key 部分匹配时整条命令跳过。')}</div><div class="field"><label for="targetPolicy">目标端已有数据</label><select name="targetPolicy" id="targetPolicy"><option value="require_empty" ${t.targetPolicy==='require_empty'?'selected':''}>要求目标 DB 为空（默认）</option><option value="overwrite" ${t.targetPolicy==='overwrite'?'selected':''}>覆盖同名 Key</option></select></div></form>`;
   if(state.step===2)content=`<p>预检会测试连接、版本、拓扑、规则和目标 DB 条件，不会删除或修改 Redis 数据。</p>${checksHTML(state.checks)}<button class="secondary" id="rerun-checks">重新预检</button>`;
   if(state.step===3)content=`<div class="grid3"><div><h3>任务</h3>${esc(t.name)}</div><div><h3>源 → 目标</h3>${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}</div><div><h3>目标策略</h3>${t.targetPolicy==='overwrite'?'覆盖同名 Key':'要求目标为空'}</div></div><div class="divider"></div><p class="muted">启动后执行一次全量迁移，并持续同步增量；浏览器关闭不停止任务。</p>`;
-  shell(t.id?'编辑同步任务':'创建同步任务','四步完成连接、规则、预检和确认',`<button class="ghost" id="back-tasks">返回任务列表</button>`,
+  shell(t.id?'编辑同步任务':'创建同步任务',`<button class="ghost" id="back-tasks">返回任务列表</button>`,
     `<div class="steps">${steps.map((s,i)=>`<span class="step ${i===state.step?'active':''}">${i+1} · ${s}</span>`).join('')}</div><div class="card">${content}<div class="actions">${state.step>0?'<button class="ghost" id="previous-step">上一步</button>':''}<button class="secondary" id="save-draft">保存草稿</button>${state.step<3?`<button class="primary" id="next-step">${state.step===1?'保存并预检':'下一步'}</button>`:'<button class="primary" id="start-sync">启动同步</button>'}</div></div>`);
   on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
   on('previous-step','click',()=>{captureWizard();state.step--;render();});
@@ -157,7 +157,7 @@ async function runChecks(){state.checks=await send('/tasks/'+state.editing.id+'/
 async function openTask(id){state.task=id;state.selectedRun=null;state.logRun=null;state.page='task';await loadLists();render();}
 function renderTask(){
   const t=state.tasks.find(x=>x.id===state.task);if(!t){state.page='tasks';render();return;}
-  shell(t.name,`${connectionName(t.sourceId)} → ${connectionName(t.targetId)}`,`<button class="ghost" id="back-tasks">返回任务列表</button>`,
+  shell(t.name,`<button class="ghost" id="back-tasks">返回任务列表</button>`,
     `<div class="card"><h2>运行状态</h2><div id="run-summary" class="muted">正在读取运行记录…</div><div class="actions"><button class="primary" id="run-start">${state.selectedRun?'重新全量运行':'启动同步'}</button><button class="secondary" id="run-stop">停止</button><button class="ghost" id="run-edit">编辑</button><button class="ghost" id="run-copy">复制任务</button><button class="danger" id="run-delete">删除任务</button></div></div><div class="card"><h2>目标 DB 清理</h2><p class="muted">此操作会清空所选目标 DB 内的所有 Key，不受任务 Key 规则限制。执行前需二次确认。</p><button class="danger" id="run-clear">清空所选目标 DB</button></div><div class="card"><div class="row"><h2>RedisShake 日志</h2><div class="actions" style="margin:0"><select id="log-run-select" aria-label="选择运行记录" style="min-width:190px"></select><button class="ghost" id="refresh-logs">刷新</button></div></div><pre class="log" id="run-log">暂无运行记录</pre></div>`);
   on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
   on('run-edit','click',()=>{state.editing=structuredClone(t);state.step=0;state.page='wizard';render();});
