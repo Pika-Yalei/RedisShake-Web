@@ -71,7 +71,7 @@ async function loadLists() {
 }
 
 function shell(title, subtitle, action, content) {
-  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web</span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main"><div class="topline"><div><h1>${esc(title)}</h1>${subtitle?`<span class="muted">${esc(subtitle)}</span>`:''}</div>${action||''}</div>${content}</main></div>`;
+  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><div><h1>${esc(title)}</h1>${subtitle?`<span class="muted">${esc(subtitle)}</span>`:''}</div>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
   on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
   on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
 }
