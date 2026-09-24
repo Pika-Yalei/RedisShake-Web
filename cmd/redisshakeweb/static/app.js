@@ -7,7 +7,7 @@ const iconPaths = {
   database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
   connections: '<circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4m-8 6 8 4"/>',
-  settings: '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="2" fill="currentColor" stroke="none"/>',
+  account: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   eye: '<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff: '<path d="m3 3 18 18M10.6 6.1A11 11 0 0 1 12 6c6.4 0 10 6 10 6a16 16 0 0 1-4 4.5M6 6.9C3.4 8.7 2 12 2 12s3.6 6 10 6c1.2 0 2.3-.2 3.3-.5"/><path d="M10 10a3 3 0 0 0 4 4"/>'
@@ -72,10 +72,10 @@ async function loadLists() {
 }
 
 function shell(title, subtitle, action, content) {
-  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web<small>数据迁移工作台</small></span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button><button id="nav-settings" class="${state.page==='settings'?'active':''}">${icon('settings')}<span>设置</span></button></nav><div class="sidebar-foot">本机执行器 <span class="foot-separator">·</span> 单管理员</div></aside><main class="main"><div class="topline"><div><span class="eyebrow">工作台</span><h1>${esc(title)}</h1><span class="muted">${esc(subtitle)}</span></div>${action||''}</div>${content}</main></div>`;
+  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web<small>数据迁移工作台</small></span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button><button id="nav-account">${icon('account')}<span>账号</span></button></nav></aside><main class="main"><div class="topline"><div><span class="eyebrow">工作台</span><h1>${esc(title)}</h1><span class="muted">${esc(subtitle)}</span></div>${action||''}</div>${content}</main></div>`;
   on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
   on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
-  on('nav-settings','click',()=>{state.page='settings';render();});
+  on('nav-account','click',showAccountDialog);
 }
 
 function render() {
@@ -87,7 +87,6 @@ function render() {
   if (state.page==='connection') return renderConnectionForm();
   if (state.page==='wizard') return renderWizard();
   if (state.page==='task') return renderTask();
-  if (state.page==='settings') return renderSettings();
 }
 
 function renderBootstrap() {
@@ -197,10 +196,16 @@ async function loadRunDetails(){
   if(state.page==='task')state.refresh=setTimeout(loadRunDetails,4000);
 }
 
-function renderSettings(){shell('设置','管理员与当前版本',`<button class="ghost" id="logout">退出登录</button>`,
-  `<div class="card"><h2>修改管理员密码</h2><form id="password-form" class="stack" style="max-width:450px">${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password')}<button class="primary">修改密码</button></form></div><div class="card"><h2>运行说明</h2><p>单向全量迁移后持续同步增量。失败后需要人工确认并重新全量运行。RedisShake 原始日志保留原文。</p><p class="muted">当前 Web 版本处于开发阶段；内核代码按固定版本集成编译。</p></div>`);
-  on('password-form','submit',async event=>{event.preventDefault();try{await send('/password',formData('password-form'));state.session=null;state.page='login';notice('密码已修改，请重新登录');}catch(error){notice(error.message,true);}});
-  on('logout','click',async()=>{try{await send('/logout',{});}catch{}state.session=null;state.page='login';render();});
+function showAccountDialog(){
+  const dialog=document.createElement('dialog');
+  dialog.className='account-dialog';
+  dialog.innerHTML=`<div class="account-dialog-content"><div class="account-dialog-heading"><h2>账号</h2><button class="ghost" type="button" id="close-account" aria-label="关闭">关闭</button></div><p class="muted">${esc(state.adminUsername)}</p><form id="password-form" class="stack"><h3>修改密码</h3>${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password')}<button class="primary">修改密码</button></form><button class="ghost account-logout" id="logout" type="button">退出登录</button></div>`;
+  document.body.append(dialog);
+  dialog.addEventListener('close',()=>dialog.remove());
+  dialog.querySelector('#close-account').addEventListener('click',()=>dialog.close());
+  dialog.querySelector('#password-form').addEventListener('submit',async event=>{event.preventDefault();try{await send('/password',formData('password-form'));dialog.close();state.session=null;state.page='login';notice('密码已修改，请重新登录');}catch(error){showErrorDialog(error.message);}});
+  dialog.querySelector('#logout').addEventListener('click',async()=>{try{await send('/logout',{});}catch{}dialog.close();state.session=null;state.page='login';render();});
+  dialog.showModal();
 }
 
 boot();
