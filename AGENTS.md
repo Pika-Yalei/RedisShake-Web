@@ -2,6 +2,10 @@
 
 Read and follow [AGENT.md](AGENT.md). After each completed repository change, run relevant checks, commit on the current branch, and push to its configured remote. Never force-push.
 
+## UI design
+
+For every UI change, read and follow [docs/ui-design.md](docs/ui-design.md). Keep the page title hierarchy consistent when adding management pages or changing routes.
+
 ## Development service after changes
 
 - After every completed repository change, start or restart the development Web service as a detached background process listening on `0.0.0.0:8080`. Keep its runtime data and logs under the ignored `.redis-shake-web/dev` directory.
