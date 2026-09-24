@@ -115,8 +115,8 @@ func (a *app) bootstrapInit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "账号需为 3 到 32 位，以字母开头，仅含字母、数字和下划线")
 		return
 	}
-	if len([]rune(input.Password)) < 12 || len([]rune(input.Password)) > 128 {
-		writeError(w, http.StatusBadRequest, "密码需为 12 到 128 个字符")
+	if input.Password == "" || len([]rune(input.Password)) > 128 {
+		writeError(w, http.StatusBadRequest, "密码不能为空且不能超过 128 个字符")
 		return
 	}
 	hash, err := passwordHash(input.Password)
@@ -182,8 +182,8 @@ func (a *app) resetPassword(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &input) {
 		return
 	}
-	if len([]rune(input.NewPassword)) < 12 || len([]rune(input.NewPassword)) > 128 {
-		writeError(w, http.StatusBadRequest, "新密码需为 12 到 128 个字符")
+	if input.NewPassword == "" || len([]rune(input.NewPassword)) > 128 {
+		writeError(w, http.StatusBadRequest, "新密码不能为空且不能超过 128 个字符")
 		return
 	}
 	a.authMu.Lock()
@@ -287,8 +287,8 @@ func (a *app) changePassword(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &input) {
 		return
 	}
-	if len([]rune(input.NewPassword)) < 12 || len([]rune(input.NewPassword)) > 128 {
-		writeError(w, http.StatusBadRequest, "新密码需为 12 到 128 个字符")
+	if input.NewPassword == "" || len([]rune(input.NewPassword)) > 128 {
+		writeError(w, http.StatusBadRequest, "新密码不能为空且不能超过 128 个字符")
 		return
 	}
 	var oldHash string

@@ -77,7 +77,7 @@ function render() {
 }
 
 function renderBootstrap() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div>${message()}<form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername,'text','3–32 位，以字母开头，可使用字母、数字和下划线')}${field('管理员密码','password','RedisShake@123456','password','至少 12 个字符')}${field('再次输入密码','confirm','RedisShake@123456','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div>${message()}<form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername,'text','3–32 位，以字母开头，可使用字母、数字和下划线')}${field('管理员密码','password','RedisShake@123456','password')}${field('再次输入密码','confirm','RedisShake@123456','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
   on('bootstrap-form','submit',async event=>{event.preventDefault();const d=formData('bootstrap-form');state.adminUsername=d.username;if(d.password!==d.confirm)return notice('两次输入的密码不一致',true);try{await send('/bootstrap/init',{username:d.username,password:d.password});state.page='login';notice('管理员账号已创建，请登录');}catch(error){notice(error.message,true);}});
 }
 
@@ -88,7 +88,7 @@ function renderLogin() {
 }
 
 function renderReset() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">账号恢复</span><h1>重置管理员密码</h1><p class="muted">在部署机器执行 <code>redis-shake-web reset-password</code> 取得一次性重置码。Docker 部署请在 runner 容器中执行，并指定 <code>--data-dir /data</code>。</p></div>${message()}<form id="reset-form" class="stack">${field('重置码','code')}${field('新密码','newPassword','','password','至少 12 个字符')}<button class="primary">设置新密码</button></form><div class="actions"><button class="ghost" id="back-login">返回登录</button></div></div></div>`;
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">账号恢复</span><h1>重置管理员密码</h1><p class="muted">在部署机器执行 <code>redis-shake-web reset-password</code> 取得一次性重置码。Docker 部署请在 runner 容器中执行，并指定 <code>--data-dir /data</code>。</p></div>${message()}<form id="reset-form" class="stack">${field('重置码','code')}${field('新密码','newPassword','','password')}<button class="primary">设置新密码</button></form><div class="actions"><button class="ghost" id="back-login">返回登录</button></div></div></div>`;
   on('reset-form','submit',async event=>{event.preventDefault();try{await send('/password/reset',formData('reset-form'));state.page='login';notice('密码已重置，请重新登录');}catch(error){notice(error.message,true);}});
   on('back-login','click',()=>{state.page='login';state.message='';render();});
 }
@@ -191,7 +191,7 @@ async function loadRunDetails(){
 }
 
 function renderSettings(){shell('设置','管理员与当前版本',`<button class="ghost" id="logout">退出登录</button>`,
-  `<div class="card"><h2>修改管理员密码</h2><form id="password-form" class="stack" style="max-width:450px">${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password','至少 12 个字符')}<button class="primary">修改密码</button></form></div><div class="card"><h2>运行说明</h2><p>单向全量迁移后持续同步增量。失败后需要人工确认并重新全量运行。RedisShake 原始日志保留原文。</p><p class="muted">当前 Web 版本处于开发阶段；内核代码按固定版本集成编译。</p></div>`);
+  `<div class="card"><h2>修改管理员密码</h2><form id="password-form" class="stack" style="max-width:450px">${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password')}<button class="primary">修改密码</button></form></div><div class="card"><h2>运行说明</h2><p>单向全量迁移后持续同步增量。失败后需要人工确认并重新全量运行。RedisShake 原始日志保留原文。</p><p class="muted">当前 Web 版本处于开发阶段；内核代码按固定版本集成编译。</p></div>`);
   on('password-form','submit',async event=>{event.preventDefault();try{await send('/password',formData('password-form'));state.session=null;state.page='login';notice('密码已修改，请重新登录');}catch(error){notice(error.message,true);}});
   on('logout','click',async()=>{try{await send('/logout',{});}catch{}state.session=null;state.page='login';state.message='';render();});
 }

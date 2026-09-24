@@ -35,7 +35,10 @@ func TestInitializeAdministratorAccount(t *testing.T) {
 	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"1invalid","password":"valid-password-123"}`); w.Code != http.StatusBadRequest {
 		t.Fatalf("invalid account: %d %s", w.Code, w.Body.String())
 	}
-	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"audit_admin","password":"valid-password-123"}`); w.Code != http.StatusCreated {
+	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"audit_admin","password":""}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("empty password: %d %s", w.Code, w.Body.String())
+	}
+	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"audit_admin","password":"short"}`); w.Code != http.StatusCreated {
 		t.Fatalf("initialize: %d %s", w.Code, w.Body.String())
 	}
 	if w := request(http.MethodPost, "/api/bootstrap/init", `{"username":"second_admin","password":"valid-password-123"}`); w.Code != http.StatusConflict {
@@ -44,7 +47,7 @@ func TestInitializeAdministratorAccount(t *testing.T) {
 	if w := request(http.MethodPost, "/api/login", `{"username":"admin","password":"valid-password-123"}`); w.Code != http.StatusUnauthorized {
 		t.Fatalf("default account should not authenticate: %d", w.Code)
 	}
-	w := request(http.MethodPost, "/api/login", `{"username":"audit_admin","password":"valid-password-123"}`)
+	w := request(http.MethodPost, "/api/login", `{"username":"audit_admin","password":"short"}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("custom account login: %d %s", w.Code, w.Body.String())
 	}
