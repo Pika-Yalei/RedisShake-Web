@@ -1,7 +1,7 @@
 import { showErrorDialog } from './dialog.js';
 
 const root = document.querySelector('#app');
-const state = { page: 'tasks', session: null, adminUsername: '', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], message: '', selectedRun: null, logRun: null, refresh: null };
+const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], message: '', selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
   database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
@@ -77,13 +77,13 @@ function render() {
 }
 
 function renderBootstrap() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div>${message()}<form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername,'text','3–32 位，以字母开头，可使用字母、数字和下划线')}${field('管理员密码','password','','password','至少 12 个字符')}${field('再次输入密码','confirm','','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div>${message()}<form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername,'text','3–32 位，以字母开头，可使用字母、数字和下划线')}${field('管理员密码','password','RedisShake@123456','password','至少 12 个字符')}${field('再次输入密码','confirm','RedisShake@123456','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
   on('bootstrap-form','submit',async event=>{event.preventDefault();const d=formData('bootstrap-form');state.adminUsername=d.username;if(d.password!==d.confirm)return notice('两次输入的密码不一致',true);try{await send('/bootstrap/init',{username:d.username,password:d.password});state.page='login';notice('管理员账号已创建，请登录');}catch(error){notice(error.message,true);}});
 }
 
 function renderLogin() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">欢迎回来</span><h1>管理员登录</h1><p class="muted">登录后管理连接与同步任务。</p></div>${message()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form><div class="actions"><button class="ghost" id="forgot-password">忘记密码</button></div></div></div>`;
-  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);state.message=credentials.username==='admin'&&credentials.password==='RedisShake@123456'?'当前使用默认密码，请到“设置”中修改。':'';await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}${message()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form><div class="actions"><button class="ghost" id="forgot-password">忘记密码</button></div></div></div>`;
+  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);state.message='';await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
   on('forgot-password','click',()=>{state.page='reset';state.message='';render();});
 }
 
