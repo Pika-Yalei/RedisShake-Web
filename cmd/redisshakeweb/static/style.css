@@ -56,11 +56,11 @@ small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
 .sidebar-brand { grid-column: 1; grid-row: 1; display: flex; align-items: center; padding: 0 16px; }
 .page-header { grid-column: 2; grid-row: 1; min-width: 0; border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; background: var(--surface); }
 .sidebar { grid-column: 1; grid-row: 2; position: sticky; top: 12px; height: calc(100dvh - 120px); padding: 0 0 20px; }
-.brand, .auth-brand { display: flex; align-items: center; gap: 11px; color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: -.25px; }
+.brand, .auth-brand { display: flex; align-items: center; gap: 11px; color: var(--ink); font-size: 18px; font-weight: 700; letter-spacing: -.25px; }
 .brand { padding: 0; }
 .brand-mark { display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; }
 .brand-logo { display: block; width: 36px; height: 36px; object-fit: contain; }
-.brand-copy { display: block; }
+.brand-copy { display: block; white-space: nowrap; }
 .nav { display: flex; flex-direction: column; gap: 5px; }
 .nav button { justify-content: flex-start; width: 100%; min-height: 39px; padding: 9px 13px; background: transparent; color: var(--secondary); font-weight: 550; text-align: left; }
 .nav button .icon { margin-right: 3px; }
@@ -142,6 +142,7 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 205px minmax(0, 1fr); }
+  .brand { font-size: 16px; }
   .main { padding: 42px 25px 70px; }
   .topline { padding: 0 25px; }
   .grid3 { grid-template-columns: 1fr; gap: 14px; }
