@@ -20,7 +20,7 @@ import (
 
 type app struct {
 	store         *store
-	shakePath     string
+	taskBinary    string
 	mu            sync.Mutex
 	authMu        sync.Mutex
 	loginFailures int
@@ -60,7 +60,7 @@ func (w *boundedWriter) Write(p []byte) (int, error) {
 	return length, nil
 }
 
-func serveRunner(dir, socketDir, shake string) error {
+func serveRunner(dir, socketDir string) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
@@ -83,17 +83,11 @@ func serveRunner(dir, socketDir, shake string) error {
 	}
 	// Older installations may still contain a now-unused initialization code.
 	_ = os.Remove(filepath.Join(dir, "bootstrap.code"))
-	if shake == "" {
-		bin, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		shake = filepath.Join(filepath.Dir(bin), "redis-shake")
-		if _, err := os.Stat(shake); err != nil {
-			shake = filepath.Join("bin", "redis-shake")
-		}
+	taskBinary, err := os.Executable()
+	if err != nil {
+		return err
 	}
-	a := &app{store: st, shakePath: shake, active: make(map[string]*runProcess)}
+	a := &app{store: st, taskBinary: taskBinary, active: make(map[string]*runProcess)}
 	if err := os.MkdirAll(socketDir, 0700); err != nil {
 		return err
 	}
@@ -192,8 +186,8 @@ func (a *app) startRun(t Task, source, target Connection) (Run, error) {
 	if busy {
 		return Run{}, errors.New("此目标连接已有运行中的同步任务")
 	}
-	if _, err := os.Stat(a.shakePath); err != nil {
-		return Run{}, errors.New("未找到 RedisShake 内核；请先安装固定版本制品")
+	if _, err := os.Stat(a.taskBinary); err != nil {
+		return Run{}, errors.New("任务进程程序不可用")
 	}
 	id, err := randomToken(18)
 	if err != nil {
@@ -227,7 +221,7 @@ func (a *app) startRun(t Task, source, target Connection) (Run, error) {
 		_ = console.Close()
 		return Run{}, err
 	}
-	cmd := exec.Command(a.shakePath, configPath)
+	cmd := exec.Command(a.taskBinary, "task", configPath)
 	cmd.Dir = runDir
 	consoleWriter := &boundedWriter{file: console, remaining: 1 << 20}
 	cmd.Stdout, cmd.Stderr = consoleWriter, consoleWriter

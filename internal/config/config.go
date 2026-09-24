@@ -2,8 +2,6 @@ package config
 
 import (
 	"bytes"
-	"fmt"
-	"github.com/Pika-Yalei/RedisShake-Web/internal/log"
 	"os"
 	"regexp"
 	"strings"
@@ -11,6 +9,8 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
+
+	"github.com/Pika-Yalei/RedisShake-Web/internal/log"
 )
 
 type FilterOptions struct {
@@ -100,23 +100,15 @@ type ShakeOptions struct {
 
 var Opt ShakeOptions
 
-func LoadConfig() *viper.Viper {
+func LoadConfig(configFile string) *viper.Viper {
 	defaults.SetDefaults(&Opt)
 
 	v := viper.New()
-	if len(os.Args) > 2 {
-		fmt.Println("Usage: redis-shake [config file]")
-		fmt.Println("Example: ")
-		fmt.Println(" 		redis-shake sync.toml # load config from sync.toml")
-		fmt.Println("		redis-shake 		  # load config from environment variables")
-		os.Exit(1)
-	}
 	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02 15:04:05"}
 	logger := zerolog.New(consoleWriter).With().Timestamp().Logger()
 	// load config from file
-	if len(os.Args) == 2 {
-		logger.Info().Msgf("load config from file: %s", os.Args[1])
-		configFile := os.Args[1]
+	if configFile != "" {
+		logger.Info().Msgf("load config from file: %s", configFile)
 		file, err := os.ReadFile(configFile)
 		if err != nil {
 			logger.Error().Msgf("failed to read config file: %v", err)

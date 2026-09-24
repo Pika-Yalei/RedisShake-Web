@@ -25,7 +25,7 @@ flowchart LR
     SN --> A
 ```
 
-使用 Go 实现 Web、执行器及适配模块，SQLite 持久化；Web 内嵌原生 HTML/CSS/JavaScript 静态资源。一个程序提供不同子命令，RedisShake 使用独立的固定版本制品。
+使用 Go 实现 Web、执行器及适配模块，SQLite 持久化；Web 内嵌原生 HTML/CSS/JavaScript 静态资源。一个可执行文件提供 Web、执行器和单任务内核子命令；每个迁移任务由独立子进程运行固定版本的 RedisShake 内核代码。
 
 - **Web**：服务静态页面、处理 HTTP 输入、返回查询结果和事件流。只通过执行器执行认证、配置持久化和任务控制；自身不管理 RedisShake PID，不直接写数据库。
 - **执行器**：数据目录单实例锁；日常业务数据的 SQLite 写入方；负责管理员、会话、连接、任务、运行快照、预检、进程控制、清理及日志。维护命令也会短暂访问数据库。
@@ -111,7 +111,7 @@ Web 默认本机 HTTP 访问；服务器的 HTTPS 由反向代理终止，受信
 
 ## 7. 本机发布与启动
 
-拟定发布包包含：Web/执行器程序、平台匹配的 RedisShake、版本清单与校验值、许可文件、配置示例及中文说明。界面资源内嵌，无需用户安装 Node.js、Go 或 SQLite 服务。
+发布包包含：一个集成 Web、执行器与 RedisShake 内核的程序、版本清单与校验值、许可文件及中文说明。界面资源内嵌，无需用户安装 Node.js、Go 或 SQLite 服务。
 
 建议命令约定：
 
@@ -132,12 +132,12 @@ Linux/macOS × x86_64/ARM64 均需真机或相应 CI runner 验证；构建成�
 
 同一个多架构镜像提供 `web` 和 `runner` 子命令；官方 Compose 文件包含两个服务：
 
-- `runner` 独占持久化数据卷和 Redis 网络访问，管理内核进程。
+- `runner` 独占持久化数据卷和 Redis 网络访问；每个迁移任务以同一程序的内部 `task` 模式运行在独立子进程中。
 - `web` 通过共享的本地控制 socket 卷访问执行器，仅开放 Web 端口。数据卷不直接挂给 Web。
 - 对齐运行 UID 和 socket 权限；容器健康检查分别判断 Web 和执行器，Web 就绪要求执行器协议匹配。
 - `docker compose restart web` 保留 runner 和同步；`docker compose down` 或重启 runner 会中断同步。
 - 服务可以由容器管理器重新启动，但失败的迁移运行不会自动重启；runner 启动时执行状态核对。
-- 交付 linux/amd64、linux/arm64；镜像内固定 RedisShake 版本，运行时不从网络下载替换内核。
+- 交付 linux/amd64、linux/arm64；内核代码编入同一镜像与可执行文件，运行时不从网络下载替换内核。
 
 ## 9. 必须验证的场景
 

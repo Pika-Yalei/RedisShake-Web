@@ -1,16 +1,21 @@
-package main
+package kernel
 
 import (
 	"context"
-	"github.com/Pika-Yalei/RedisShake-Web/internal/client"
+	"fmt"
+	"io"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/mcuadros/go-defaults"
+
+	"github.com/Pika-Yalei/RedisShake-Web/internal/client"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/config"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/entry"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/filter"
@@ -19,12 +24,6 @@ import (
 	"github.com/Pika-Yalei/RedisShake-Web/internal/status"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/utils"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/writer"
-
-	"fmt"
-	"io"
-	"runtime"
-
-	"github.com/mcuadros/go-defaults"
 )
 
 var (
@@ -37,17 +36,12 @@ func getVersionString() string {
 	return fmt.Sprintf("%s %s/%s (Git SHA: %s)", Version, runtime.GOOS, runtime.GOARCH, GitCommit)
 }
 
-func main() {
-	// Add version flag check before config loading
-	if len(os.Args) == 2 && (os.Args[1] == "-v" || os.Args[1] == "--version" || os.Args[1] == "version") {
-		fmt.Printf("redis-shake version %s\n", getVersionString())
-		os.Exit(0)
-	}
-
+// Run starts one RedisShake migration in the current task process.
+func Run(configPath string) {
 	// Add version info at startup
 	log.Infof("redis-shake version %s", getVersionString())
 
-	v := config.LoadConfig()
+	v := config.LoadConfig(configPath)
 
 	log.Init(config.Opt.Advanced.LogLevel,
 		config.Opt.Advanced.LogFile,

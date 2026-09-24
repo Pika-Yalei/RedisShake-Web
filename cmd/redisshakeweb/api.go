@@ -275,7 +275,7 @@ func (a *app) preflightTask(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	checks := preflight(ctx, t, source, target, a.shakePath)
+	checks := preflight(ctx, t, source, target, a.taskBinary)
 	writeJSON(w, 200, checks)
 }
 
@@ -299,7 +299,7 @@ func (a *app) startTask(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	checks := preflight(ctx, t, source, target, a.shakePath)
+	checks := preflight(ctx, t, source, target, a.taskBinary)
 	if !checksPass(checks) {
 		writeJSON(w, 409, map[string]any{"error": "预检未通过", "checks": checks})
 		return

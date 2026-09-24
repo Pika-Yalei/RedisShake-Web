@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Pika-Yalei/RedisShake-Web/internal/kernel"
 )
 
 //go:embed static/*
@@ -31,7 +33,6 @@ func main() {
 	dataDir := flags.String("data-dir", defaultDataDir(), "persistent data directory")
 	socketDir := flags.String("socket-dir", "", "directory containing runner Unix socket")
 	listen := flags.String("listen", "127.0.0.1:8080", "Web listen address")
-	shake := flags.String("redis-shake", "", "path to the pinned RedisShake executable")
 	assetsDir := flags.String("assets-dir", "", "serve frontend assets directly from a directory (development)")
 	_ = flags.Parse(args)
 	if *socketDir == "" {
@@ -40,11 +41,17 @@ func main() {
 	var err error
 	switch mode {
 	case "serve":
-		err = serve(*dataDir, *socketDir, *listen, *shake, *assetsDir)
+		err = serve(*dataDir, *socketDir, *listen, *assetsDir)
 	case "web":
 		err = serveWeb(*socketDir, *listen, *assetsDir)
 	case "runner":
-		err = serveRunner(*dataDir, *socketDir, *shake)
+		err = serveRunner(*dataDir, *socketDir)
+	case "task":
+		if flags.NArg() != 1 {
+			err = errors.New("task 需要一个配置文件路径")
+		} else {
+			kernel.Run(flags.Arg(0))
+		}
 	case "status":
 		err = printStatus(*socketDir)
 	case "shutdown":
@@ -72,7 +79,7 @@ func defaultDataDir() string {
 
 func socketPath(dir string) string { return filepath.Join(dir, "runner.sock") }
 
-func serve(dataDir, socketDir, listen, shake, assetsDir string) error {
+func serve(dataDir, socketDir, listen, assetsDir string) error {
 	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		return err
 	}
@@ -82,9 +89,6 @@ func serve(dataDir, socketDir, listen, shake, assetsDir string) error {
 			return err
 		}
 		arguments := []string{"runner", "--data-dir", dataDir, "--socket-dir", socketDir}
-		if shake != "" {
-			arguments = append(arguments, "--redis-shake", shake)
-		}
 		cmd := exec.Command(bin, arguments...)
 		logPath := filepath.Join(dataDir, "runner-console.log")
 		logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)

@@ -191,7 +191,7 @@ async function loadRunDetails(){
 }
 
 function renderSettings(){shell('设置','管理员与当前版本',`<button class="ghost" id="logout">退出登录</button>`,
-  `<div class="card"><h2>修改管理员密码</h2><form id="password-form" class="stack" style="max-width:450px">${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password','至少 12 个字符')}<button class="primary">修改密码</button></form></div><div class="card"><h2>运行说明</h2><p>单向全量迁移后持续同步增量。失败后需要人工确认并重新全量运行。RedisShake 原始日志保留原文。</p><p class="muted">当前 Web 版本处于开发阶段；内核制品按固定版本构建。</p></div>`);
+  `<div class="card"><h2>修改管理员密码</h2><form id="password-form" class="stack" style="max-width:450px">${field('原密码','oldPassword','','password')}${field('新密码','newPassword','','password','至少 12 个字符')}<button class="primary">修改密码</button></form></div><div class="card"><h2>运行说明</h2><p>单向全量迁移后持续同步增量。失败后需要人工确认并重新全量运行。RedisShake 原始日志保留原文。</p><p class="muted">当前 Web 版本处于开发阶段；内核代码按固定版本集成编译。</p></div>`);
   on('password-form','submit',async event=>{event.preventDefault();try{await send('/password',formData('password-form'));state.session=null;state.page='login';notice('密码已修改，请重新登录');}catch(error){notice(error.message,true);}});
   on('logout','click',async()=>{try{await send('/logout',{});}catch{}state.session=null;state.page='login';state.message='';render();});
 }

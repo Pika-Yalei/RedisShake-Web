@@ -2,7 +2,7 @@ services:
   runner:
     build: .
     image: redisshake-web:local
-    command: ["runner", "--data-dir", "/data", "--socket-dir", "/run/redisshake", "--redis-shake", "/app/redis-shake"]
+    command: ["runner", "--data-dir", "/data", "--socket-dir", "/run/redisshake"]
     volumes:
       - redisshake-data:/data
       - redisshake-socket:/run/redisshake

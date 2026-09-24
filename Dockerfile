@@ -11,4 +11,4 @@ COPY --from=builder --chown=app:app /out/ /app/
 USER app
 WORKDIR /app
 ENTRYPOINT ["/app/redis-shake-web"]
-CMD ["serve", "--data-dir", "/data", "--socket-dir", "/run/redisshake", "--listen", "0.0.0.0:8080", "--redis-shake", "/app/redis-shake"]
+CMD ["serve", "--data-dir", "/data", "--socket-dir", "/run/redisshake", "--listen", "0.0.0.0:8080"]

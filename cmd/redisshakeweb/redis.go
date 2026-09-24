@@ -227,7 +227,7 @@ func validateTask(t Task, source, target Connection) error {
 	return nil
 }
 
-func preflight(ctx context.Context, t Task, source, target Connection, shakePath string) []Check {
+func preflight(ctx context.Context, t Task, source, target Connection, taskBinary string) []Check {
 	checks := []Check{}
 	if err := validateTask(t, source, target); err != nil {
 		return []Check{{Name: "任务配置", Message: err.Error()}}
@@ -309,10 +309,10 @@ func preflight(ctx context.Context, t Task, source, target Connection, shakePath
 			checks = append(checks, Check{Name: "目标 DB 空检查", OK: ok, Message: msg})
 		}
 	}
-	if _, err := os.Stat(shakePath); err != nil {
-		checks = append(checks, Check{Name: "RedisShake 内核", Message: "未找到 RedisShake 内核制品"})
+	if _, err := os.Stat(taskBinary); err != nil {
+		checks = append(checks, Check{Name: "任务进程", Message: "任务进程程序不可用"})
 	} else {
-		checks = append(checks, Check{Name: "RedisShake 内核", OK: true, Message: "可执行文件已就绪"})
+		checks = append(checks, Check{Name: "任务进程", OK: true, Message: "单任务进程已就绪"})
 	}
 	return checks
 }
