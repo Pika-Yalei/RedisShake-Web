@@ -71,7 +71,7 @@ async function loadLists() {
 }
 
 function shell(title, subtitle, action, content) {
-  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web<small>数据迁移工作台</small></span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main"><div class="topline"><div><span class="eyebrow">工作台</span><h1>${esc(title)}</h1><span class="muted">${esc(subtitle)}</span></div>${action||''}</div>${content}</main></div>`;
+  root.innerHTML=`<div class="layout"><aside class="sidebar"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web</span></div><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main"><div class="topline"><div><h1>${esc(title)}</h1>${subtitle?`<span class="muted">${esc(subtitle)}</span>`:''}</div>${action||''}</div>${content}</main></div>`;
   on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
   on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
 }
@@ -98,7 +98,7 @@ function renderLogin() {
 }
 
 function renderTasks() {
-  shell('同步任务','创建、运行和查看 Redis 数据同步',state.tasks.length ? `<button class="primary" id="new-task">${icon('plus')} 创建任务</button>` : '',
+  shell('同步任务','',state.tasks.length ? `<button class="primary" id="new-task">${icon('plus')} 创建任务</button>` : '',
     `<div class="card"><h2>任务列表</h2>${state.tasks.length ? state.tasks.map(t=>`<div class="list-item"><div class="details"><strong>${esc(t.name)} <span data-run-status="${esc(t.id)}" class="badge">加载中</span></strong><span class="muted">${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}　·　${esc(t.updatedAt||'未运行')}</span></div><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`).join('') : `<div class="empty"><strong>还没有同步任务</strong><p>先创建源端和目标端连接，再用向导配置同步。</p><button class="primary" id="empty-new">创建同步任务</button></div>`}</div>`);
   on('new-task','click',newTask);on('empty-new','click',newTask);
   document.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>openTask(button.dataset.task)));
@@ -108,7 +108,7 @@ function connectionName(id) { return state.connections.find(x=>x.id===id)?.name 
 function newTask(){state.editing={name:'',sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};state.step=0;state.checks=[];state.page='wizard';render();}
 
 function renderConnections() {
-  shell('连接管理','保存并复用源端与目标端连接',`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
+  shell('连接管理','',`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
     `<div class="card"><h2>已保存的连接</h2>${state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>还没有 Redis 连接</strong><p>添加连接后即可在任务向导中选择。</p></div>`}</div>`);
   on('new-connection','click',()=>{state.editing={kind:'standalone'};state.page='connection';render();});
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));

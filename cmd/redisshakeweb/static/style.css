@@ -52,23 +52,22 @@ small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
 .password-toggle:active:not(:disabled) { transform: translateY(-50%) scale(.96); }
 .password-toggle .icon { width: 18px; height: 18px; }
 
-.layout { display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: 100dvh; }
-.sidebar { position: sticky; top: 0; display: flex; flex-direction: column; gap: 31px; height: 100dvh; padding: 28px 15px 21px; border-right: 1px solid var(--line); background: var(--sidebar); -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px); }
+.layout { position: relative; display: grid; grid-template-columns: 244px minmax(0, 1fr); min-height: 100dvh; }
+.layout::before { position: absolute; z-index: 5; top: 100px; right: 0; left: 0; height: 1px; background: var(--line); content: ''; pointer-events: none; }
+.sidebar { position: sticky; top: 0; display: flex; flex-direction: column; gap: 70px; height: 100dvh; padding: 28px 15px 21px; border-right: 1px solid var(--line); background: var(--sidebar); -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px); }
 .brand, .auth-brand { display: flex; align-items: center; gap: 11px; color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: -.25px; }
 .brand { padding: 0 9px; }
 .brand-mark { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; color: #fff; background: var(--accent); box-shadow: 0 2px 6px rgba(0, 88, 190, .16); }
 .brand-mark .icon { width: 19px; height: 19px; }
-.brand-copy { display: flex; flex-direction: column; gap: 1px; }
-.brand-copy small { font-size: 11px; font-weight: 500; letter-spacing: 0; }
+.brand-copy { display: block; }
 .nav { display: flex; flex-direction: column; gap: 5px; }
 .nav button { justify-content: flex-start; width: 100%; min-height: 39px; padding: 9px 13px; background: transparent; color: var(--secondary); font-weight: 550; text-align: left; }
 .nav button .icon { margin-right: 3px; }
 .nav button:hover { background: var(--hover); color: var(--ink); }
 .nav button.active { color: var(--accent); background: rgba(0, 122, 255, .1); font-weight: 650; }
-.main { width: min(100%, 1260px); margin: 0 auto; padding: 43px clamp(24px, 4vw, 58px) 76px; }
-.topline { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; min-height: 80px; margin-bottom: 25px; }
+.main { width: min(100%, 1260px); margin: 0 auto; padding: 125px clamp(24px, 4vw, 58px) 76px; }
+.topline { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; min-height: 48px; margin-bottom: 30px; }
 .topline > div { min-width: 0; }
-.eyebrow { display: block; margin-bottom: 5px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .07em; }
 h1 { margin: 0 0 3px; font-size: clamp(25px, 2.5vw, 32px); font-weight: 720; letter-spacing: -.035em; line-height: 1.22; }
 h2 { margin: 0 0 18px; font-size: 17px; font-weight: 690; letter-spacing: -.02em; }
 h3 { margin: 0 0 9px; font-size: 13px; font-weight: 650; }
@@ -140,7 +139,7 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
 
 @media (max-width: 900px) {
   .layout { grid-template-columns: 205px minmax(0, 1fr); }
-  .main { padding: 35px 25px 70px; }
+  .main { padding: 125px 25px 70px; }
   .grid3 { grid-template-columns: 1fr; gap: 14px; }
 }
 
@@ -151,8 +150,9 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
   .nav { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; }
   .nav button { flex-direction: column; justify-content: center; gap: 3px; min-height: 53px; padding: 5px 3px; font-size: 10px; text-align: center; }
   .nav button .icon { width: 20px; height: 20px; margin: 0; }
+  .layout::before { display: none; }
   .main { padding: 27px 17px 28px; }
-  .topline { align-items: flex-start; min-height: 0; margin-bottom: 21px; }
+  .topline { align-items: flex-start; min-height: 0; margin-bottom: 21px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
   .topline > button { flex: none; }
   .grid, .grid3 { grid-template-columns: 1fr; gap: 16px; }
   .card { padding: 18px; border-radius: 15px; }
