@@ -94,7 +94,7 @@
 
 来源：[RedisShake 官方仓库与限制说明](https://github.com/tair-opensource/RedisShake)。
 
-已固定 RedisShake v4.6.2 并校验源码归档；补丁和当前实测结果见 [验证记录](verification.md)。版本/拓扑冒烟不等于容量、稳定性或全命令兼容性验收。
+已固定 RedisShake v4.6.2 并校验源码归档，内核源码已纳入 `third_party/redis-shake` 且包含本项目补丁；补丁和当前实测结果见 [验证记录](verification.md)。版本/拓扑冒烟不等于容量、稳定性或全命令兼容性验收。
 
 ### 对标借鉴范围
 

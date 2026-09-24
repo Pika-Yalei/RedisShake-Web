@@ -26,7 +26,7 @@ cd dist/redis-shake-web-$(go env GOOS)-$(go env GOARCH)
 
 启动时在终端显示 Web 地址。前端资源已内嵌到 `redis-shake-web` 可执行文件，直接访问该地址即可，无需单独部署前端服务。`serve` 会启动常驻执行器，然后运行 Web 服务；关闭 Web 进程不会停止已有同步任务。重新执行 `./redis-shake-web serve` 即可接回执行器。要有意停止执行器及任务，先在 Web 停止任务，再运行 `./redis-shake-web shutdown`。默认数据目录为 `~/.redis-shake-web`，可给命令传入 `--data-dir`；若单独设置 `--socket-dir`，后续管理命令也要使用同一参数。
 
-支持交叉构建 `darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`，例如 `bash scripts/build.sh linux amd64`。执行 `bash scripts/package.sh` 可在 `dist/release/` 生成四个可解压运行的 `.tar.gz` 包和 `SHA256SUMS`。构建脚本校验 RedisShake 官方 v4.6.2 源码归档 SHA-256，应用仓库内的[补丁](patches/redis-shake-v4.6.2.patch)，并将两个可执行文件、文档及版本记录放入包中。Docker 镜像同样从固定源码构建。
+支持交叉构建 `darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`，例如 `bash scripts/build.sh linux amd64`。执行 `bash scripts/package.sh` 可在 `dist/release/` 生成四个可解压运行的 `.tar.gz` 包和 `SHA256SUMS`。[RedisShake 内核源码](third_party/redis-shake)已纳入仓库，基于官方 v4.6.2 并包含本项目的[补丁](patches/redis-shake-v4.6.2.patch)；构建脚本直接编译该目录，无需下载上游源码。源码保留上游 [MIT 许可证](third_party/redis-shake/license.txt)。构建产物包含两个可执行文件、文档、版本记录及 RedisShake 许可证；Docker 镜像也从仓库内源码构建。
 
 ## 使用流程
 

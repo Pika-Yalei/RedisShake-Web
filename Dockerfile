@@ -1,8 +1,7 @@
 FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS builder
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /src
-RUN apt-get update && apt-get install -y --no-install-recommends curl git openssl && rm -rf /var/lib/apt/lists/*
 COPY . .
 RUN bash scripts/build.sh "$TARGETOS" "$TARGETARCH" /out
 

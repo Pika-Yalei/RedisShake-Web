@@ -1,4 +1,5 @@
 .git
+.redis-shake-web
 dist
 bin
 *.log

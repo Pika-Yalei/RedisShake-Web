@@ -6,7 +6,7 @@
 
 Go 单文件 Web 入口与常驻执行器、SQLite 连接和任务存储、AES-GCM 凭据加密、单管理员初始化/登录/密码重置、原生 JavaScript 中文界面、连接管理、四步任务向导、预检、运行历史和原始日志、任务启动/停止/重新全量/复制/删除、按目标 DB 二次确认清理均已写入代码。Web 与执行器通过仅本机 Unix socket 通信；Web 进程重启后可重新连接仍在运行的执行器和 RedisShake 进程。执行器重启后不会自动续传，原运行标记中断，需人工重新全量。
 
-内核固定为 RedisShake v4.6.2，源码归档 SHA-256 为 `c6c7de3a76b7bf4f18e494ffb40f1d09287622c4574d4da41fc1244a2dcc0b3f`，官方标签所指提交为 `f20f28e6f2679e71a213904d2c74ceb521e19551`。仓库补丁给增量条目标记来源，使命令过滤只作用于增量；添加 Web 执行器存活检测、禁止内核重新展开配置中的密码变量、为降级 RESP 覆盖路径先删除旧 Key，以及对未过滤的整库清空命令失败停止。补丁应用与编译由 `scripts/build.sh` 完成。
+内核固定为 RedisShake v4.6.2，源码归档 SHA-256 为 `c6c7de3a76b7bf4f18e494ffb40f1d09287622c4574d4da41fc1244a2dcc0b3f`，官方标签所指提交为 `f20f28e6f2679e71a213904d2c74ceb521e19551`。源码已复制到 `third_party/redis-shake` 并应用仓库补丁：给增量条目标记来源，使命令过滤只作用于增量；添加 Web 执行器存活检测、禁止内核重新展开配置中的密码变量、为降级 RESP 覆盖路径先删除旧 Key，以及对未过滤的整库清空命令失败停止。`scripts/build.sh` 直接编译仓库内的内核源码。
 
 ## 实测结果
 
@@ -31,6 +31,8 @@ Go 单文件 Web 入口与常驻执行器、SQLite 连接和任务存储、AES-G
 目标 DB 清理在 DB 3 执行后，DB 2 数据保持；同一确认令牌重复提交没有再次清理后来新增的 Key。预览后把任务目标 DB 从 15 改为 16，旧令牌确认返回 409，未执行清理。原生 Web 重启和 Docker 单独重启 `web` 时，已有同步进程继续复制增量；手动停止任务后状态更新为 `STOPPED`。Sentinel 与单机连接指向同一目标 Redis 时，第二个运行被拒绝，目标清理也被拒绝。重启 Docker 执行器后，旧运行标记为 `FAILED` 且旧内核进程不再存在，未自动续传。停止源 Redis 容器后，运行转为 `FAILED`；目标保留此前写入的数据。管理员一次性密码重置成功后，旧密码登录返回 401，新密码登录成功。
 
 构建与检查：`go test -race ./...`、`go vet ./...`、`node --check cmd/redisshakeweb/static/app.js`、补丁后的 `go test ./internal/filter ./internal/rdb` 通过。`darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64` 四个组合交叉构建通过；四个 `.tar.gz` 包的 SHA-256 校验通过。实际运行仅覆盖 macOS/arm64 与 Docker Linux/amd64。Docker Compose 构建、启动、健康检查通过。并发冒烟时第六个任务被 5 任务上限阻止，未做满负载性能验收。
+
+2026-09-24 源码入库复测：仓库内内核源码与上游 v4.6.2 归档逐文件比较，差异仅为记录在 `patches/redis-shake-v4.6.2.patch` 中的修改和新增测试；在 Web 与内核两个 Go 模块分别运行 `go test ./...` 均通过。`bash scripts/package.sh` 再次完成四个平台打包；`docker build --platform linux/arm64` 使用仓库内源码构建成功，构建日志显示 `linux/arm64`，镜像架构检查为 `arm64/linux`。这些是构建检查，不代表 Linux/arm64 实机运行验收。
 
 ## 尚需验收
 
