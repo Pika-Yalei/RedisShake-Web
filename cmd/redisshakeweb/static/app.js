@@ -77,7 +77,7 @@ function render() {
 }
 
 function renderBootstrap() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">首次使用</span><h1>初始化管理员账号</h1><p class="muted">设置好账号后，即可开始管理 Redis 数据迁移。</p></div>${message()}<form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername,'text','3–32 位，以字母开头，可使用字母、数字和下划线')}${field('管理员密码','password','','password','至少 12 个字符')}${field('再次输入密码','confirm','','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div>${message()}<form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername,'text','3–32 位，以字母开头，可使用字母、数字和下划线')}${field('管理员密码','password','','password','至少 12 个字符')}${field('再次输入密码','confirm','','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
   on('bootstrap-form','submit',async event=>{event.preventDefault();const d=formData('bootstrap-form');state.adminUsername=d.username;if(d.password!==d.confirm)return notice('两次输入的密码不一致',true);try{await send('/bootstrap/init',{username:d.username,password:d.password});state.page='login';notice('管理员账号已创建，请登录');}catch(error){notice(error.message,true);}});
 }
 
