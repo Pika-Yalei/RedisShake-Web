@@ -82,7 +82,6 @@ function render() {
   if (state.refresh) { clearTimeout(state.refresh); state.refresh=null; }
   if (state.page==='bootstrap') return renderBootstrap();
   if (state.page==='login') return renderLogin();
-  if (state.page==='reset') return renderReset();
   if (state.page==='tasks') return renderTasks();
   if (state.page==='connections') return renderConnections();
   if (state.page==='connection') return renderConnectionForm();
@@ -97,15 +96,8 @@ function renderBootstrap() {
 }
 
 function renderLogin() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form><div class="actions"><button class="ghost" id="forgot-password">忘记密码</button></div></div></div>`;
+  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form></div></div>`;
   on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
-  on('forgot-password','click',()=>{state.page='reset';render();});
-}
-
-function renderReset() {
-  root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><span class="eyebrow">账号恢复</span><h1>重置管理员密码</h1><p class="muted">在部署机器执行 <code>redis-shake-web reset-password</code> 取得一次性重置码。Docker 部署请在 runner 容器中执行，并指定 <code>--data-dir /data</code>。</p></div><form id="reset-form" class="stack">${field('重置码','code')}${field('新密码','newPassword','','password')}<button class="primary">设置新密码</button></form><div class="actions"><button class="ghost" id="back-login">返回登录</button></div></div></div>`;
-  on('reset-form','submit',async event=>{event.preventDefault();try{await send('/password/reset',formData('reset-form'));state.page='login';notice('密码已重置，请重新登录');}catch(error){notice(error.message,true);}});
-  on('back-login','click',()=>{state.page='login';render();});
 }
 
 function renderTasks() {

@@ -25,6 +25,9 @@ func TestInitializeAdministratorAccount(t *testing.T) {
 		handler.ServeHTTP(w, httptest.NewRequest(method, path, strings.NewReader(body)))
 		return w
 	}
+	if w := request(http.MethodPost, "/api/password/reset", `{"code":"old-code","newPassword":"new-password"}`); w.Code != http.StatusNotFound {
+		t.Fatalf("removed password reset endpoint: %d %s", w.Code, w.Body.String())
+	}
 	crossOrigin := httptest.NewRequest(http.MethodPost, "/api/bootstrap/init", strings.NewReader(`{"username":"attacker","password":"valid-password-123"}`))
 	crossOrigin.Header.Set("Origin", "https://other.example")
 	crossOriginResult := httptest.NewRecorder()

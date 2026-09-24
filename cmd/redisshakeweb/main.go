@@ -56,8 +56,6 @@ func main() {
 		err = printStatus(*socketDir)
 	case "shutdown":
 		err = requestShutdown(*socketDir)
-	case "reset-password":
-		err = issuePasswordReset(*dataDir)
 	default:
 		err = fmt.Errorf("unknown command %q", mode)
 	}

@@ -10,13 +10,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/argon2"
@@ -64,30 +62,6 @@ func (s *store) hasAdmin() (bool, error) {
 		return false, nil
 	}
 	return err == nil, err
-}
-
-func issuePasswordReset(dir string) error {
-	s, err := openStore(dir)
-	if err != nil {
-		return err
-	}
-	defer s.db.Close()
-	exists, err := s.hasAdmin()
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return errors.New("管理员尚未初始化")
-	}
-	code, err := randomToken(24)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(dir, "password-reset.code"), []byte(code+"\n"), 0600); err != nil {
-		return err
-	}
-	fmt.Printf("一次性密码重置码：%s\n", code)
-	return nil
 }
 
 func (a *app) bootstrapStatus(w http.ResponseWriter, _ *http.Request) {
@@ -175,49 +149,6 @@ func (a *app) login(w http.ResponseWriter, r *http.Request) {
 	a.loginFailures = 0
 	a.authMu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]string{"username": username, "csrf": a.csrf(token)})
-}
-
-func (a *app) resetPassword(w http.ResponseWriter, r *http.Request) {
-	var input struct{ Code, NewPassword string }
-	if !readJSON(w, r, &input) {
-		return
-	}
-	if input.NewPassword == "" || len([]rune(input.NewPassword)) > 128 {
-		writeError(w, http.StatusBadRequest, "新密码不能为空且不能超过 128 个字符")
-		return
-	}
-	a.authMu.Lock()
-	defer a.authMu.Unlock()
-	path := filepath.Join(a.store.dir, "password-reset.code")
-	code, err := os.ReadFile(path)
-	stat, statErr := os.Stat(path)
-	if err != nil || statErr != nil || time.Since(stat.ModTime()) > 30*time.Minute || subtle.ConstantTimeCompare([]byte(strings.TrimSpace(string(code))), []byte(input.Code)) != 1 {
-		writeError(w, http.StatusForbidden, "重置码无效或已过期")
-		return
-	}
-	hash, err := passwordHash(input.NewPassword)
-	if err != nil {
-		writeError(w, 500, "无法重置密码")
-		return
-	}
-	tx, err := a.store.db.Begin()
-	if err == nil {
-		_, err = tx.Exec("UPDATE admin SET password_hash=? WHERE id=1", hash)
-		if err == nil {
-			_, err = tx.Exec("DELETE FROM sessions")
-		}
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			_ = tx.Rollback()
-		}
-	}
-	if err != nil {
-		writeError(w, 500, "无法重置密码")
-		return
-	}
-	_ = os.Remove(path)
-	writeJSON(w, 200, map[string]bool{"ok": true})
 }
 
 func (a *app) csrf(token string) string {

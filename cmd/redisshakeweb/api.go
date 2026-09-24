@@ -21,7 +21,6 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("GET /api/bootstrap/status", a.bootstrapStatus)
 	mux.HandleFunc("POST /api/bootstrap/init", a.bootstrapInit)
 	mux.HandleFunc("POST /api/login", a.login)
-	mux.HandleFunc("POST /api/password/reset", a.resetPassword)
 	mux.HandleFunc("GET /api/me", a.requireAuth(a.me))
 	mux.HandleFunc("POST /api/logout", a.requireAuth(a.logout))
 	mux.HandleFunc("POST /api/password", a.requireAuth(a.changePassword))

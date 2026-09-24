@@ -40,7 +40,6 @@ cd dist/redis-shake-web-$(go env GOOS)-$(go env GOARCH)
 ## 运维
 
 - Docker 中只重启 Web：`docker compose restart web`。同步进程由 `runner` 容器管理，会继续运行。重启 runner、整组服务或主机将中断同步；恢复后需要人工确认并重新全量。
-- 忘记管理员密码：在原生数据目录执行 `./redis-shake-web reset-password`，或在 Docker 执行 `docker compose exec runner /app/redis-shake-web reset-password --data-dir /data`，然后在登录页输入一次性重置码和新密码。重置码 30 分钟有效，重置会使旧会话失效。
 - SQLite、加密密钥和运行日志位于数据目录。备份时应同时保存整个目录；密钥丢失会使已保存的 Redis 凭据无法解密。任务配置文件含 Redis 凭据，运行期间权限为当前运行用户独占，任务结束后删除。
 - 日志在任务详情查看。RedisShake 日志轮转为单文件上限 64 MiB、最多 3 个备份；页面返回日志末尾，历史运行记录可切换查看。
 
