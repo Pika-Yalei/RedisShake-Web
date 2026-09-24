@@ -71,6 +71,8 @@ small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
 h1 { margin: 0; font-size: clamp(22px, 2vw, 27px); font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
 .page-title { display: flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
 .title-parent, .title-separator { flex: none; color: var(--secondary); font-weight: 550; }
+.page-title .title-parent { min-height: 0; padding: 0; border: 0; border-radius: 2px; background: none; box-shadow: none; font: inherit; font-weight: 550; letter-spacing: inherit; line-height: inherit; }
+.page-title .title-parent:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
 .title-current { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 h2 { margin: 0 0 18px; font-size: 17px; font-weight: 690; letter-spacing: -.02em; }
 h3 { margin: 0 0 9px; font-size: 13px; font-weight: 650; }

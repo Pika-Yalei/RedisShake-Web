@@ -70,13 +70,19 @@ async function loadLists() {
   [state.connections,state.tasks] = await Promise.all([api('/connections'),api('/tasks')]);
 }
 
-const sections=Object.freeze({tasks:'同步任务',connections:'连接管理'});
+const sections=Object.freeze({tasks:{label:'同步任务',page:'tasks'},connections:{label:'连接管理',page:'connections'}});
 
 function shell(path, action, content) {
-  const title=path.map((part,index)=>`${index?'<span class="title-separator" aria-hidden="true">/</span>':''}<span class="${index===path.length-1?'title-current':'title-parent'}">${esc(part)}</span>`).join('');
-  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${brandLogo()}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><h1 class="page-title" aria-label="${esc(path.join(' / '))}">${title}</h1>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
-  on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
-  on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
+  const title=path.map((part,index)=>{
+    const label=typeof part==='string'?part:part.label;
+    if(index===path.length-1)return `${index?'<span class="title-separator" aria-hidden="true">/</span>':''}<span class="title-current">${esc(label)}</span>`;
+    return `<button type="button" class="title-parent" data-breadcrumb-page="${esc(part.page)}">${esc(label)}</button><span class="title-separator" aria-hidden="true">/</span>`;
+  }).join('');
+  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${brandLogo()}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><h1 class="page-title" aria-label="${esc(path.map(part=>typeof part==='string'?part:part.label).join(' / '))}">${title}</h1>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
+  const openSection=async page=>{state.page=page;await loadLists();render();};
+  document.querySelectorAll('[data-breadcrumb-page]').forEach(button=>button.addEventListener('click',()=>openSection(button.dataset.breadcrumbPage)));
+  on('nav-tasks','click',()=>openSection('tasks'));
+  on('nav-connections','click',()=>openSection('connections'));
 }
 
 function render() {
