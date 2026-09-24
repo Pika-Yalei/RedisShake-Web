@@ -58,18 +58,18 @@ small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
 .sidebar { grid-column: 1; grid-row: 2; position: sticky; top: 12px; height: calc(100dvh - 120px); padding: 0 0 20px; }
 .brand, .auth-brand { display: flex; align-items: center; gap: 11px; color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: -.25px; }
 .brand { padding: 0; }
-.brand-mark { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; color: #fff; background: var(--accent); box-shadow: 0 2px 6px rgba(0, 88, 190, .16); }
-.brand-mark .icon { width: 19px; height: 19px; }
+.brand-mark { display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; }
+.brand-logo { display: block; width: 36px; height: 36px; object-fit: contain; }
 .brand-copy { display: block; }
 .nav { display: flex; flex-direction: column; gap: 5px; }
 .nav button { justify-content: flex-start; width: 100%; min-height: 39px; padding: 9px 13px; background: transparent; color: var(--secondary); font-weight: 550; text-align: left; }
 .nav button .icon { margin-right: 3px; }
 .nav button:hover { background: var(--hover); color: var(--ink); }
 .nav button.active { color: var(--ink); background: var(--hover); font-weight: 650; }
-.main { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; padding: 60px clamp(26px, 3vw, 48px) 76px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; background: var(--surface); }
+.main { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; padding: 48px clamp(26px, 3vw, 48px) 76px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; background: var(--surface); }
 .topline { display: flex; justify-content: space-between; align-items: center; gap: 20px; width: 100%; height: 100%; padding: 0 clamp(26px, 3vw, 48px); }
 .topline > div { min-width: 0; }
-h1 { margin: 0 0 3px; font-size: clamp(25px, 2.5vw, 32px); font-weight: 720; letter-spacing: -.035em; line-height: 1.22; }
+h1 { margin: 0 0 3px; font-size: clamp(22px, 2vw, 27px); font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
 h2 { margin: 0 0 18px; font-size: 17px; font-weight: 690; letter-spacing: -.02em; }
 h3 { margin: 0 0 9px; font-size: 13px; font-weight: 650; }
 p { line-height: 1.55; }
@@ -89,7 +89,6 @@ p { line-height: 1.55; }
 .inline input { width: auto; min-height: 0; }
 
 .list-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 76px; padding: 14px 0; border-top: 1px solid var(--line); }
-.card h2 + .list-item { border-top: 0; }
 .list-item strong { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 5px; font-size: 14px; font-weight: 650; }
 .list-item .details { min-width: 0; }
 .list-item .actions { margin: 0; }
@@ -110,9 +109,9 @@ p { line-height: 1.55; }
 .feedback-dialog p { margin: 0; color: var(--secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
 .feedback-dialog-actions { display: flex; justify-content: flex-end; margin-top: 25px; }
 .feedback-dialog-actions button { min-width: 92px; }
-.empty { padding: 46px 24px 35px; border: 1px dashed var(--line); border-radius: 13px; color: var(--secondary); text-align: center; }
-.empty strong { display: block; margin-bottom: 5px; color: var(--ink); font-size: 15px; font-weight: 650; }
-.empty p { margin: 0 auto 21px; max-width: 43ch; }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; padding: 28px 20px; color: var(--secondary); text-align: center; }
+.empty strong { display: block; color: var(--ink); font-size: 16px; font-weight: 650; }
+.empty p { margin: 8px auto 20px; max-width: 43ch; }
 
 .steps { display: flex; gap: 7px; margin-bottom: 19px; padding: 5px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
 .step { flex: 1; padding: 9px 11px; border-radius: 9px; color: var(--secondary); font-size: 12px; font-weight: 600; text-align: center; white-space: nowrap; transition: color .2s ease, background-color .2s ease; }

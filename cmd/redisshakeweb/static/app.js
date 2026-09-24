@@ -4,7 +4,6 @@ const root = document.querySelector('#app');
 const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
-  database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
   connections: '<circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4m-8 6 8 4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -12,7 +11,8 @@ const iconPaths = {
   eyeOff: '<path d="m3 3 18 18M10.6 6.1A11 11 0 0 1 12 6c6.4 0 10 6 10 6a16 16 0 0 1-4 4.5M6 6.9C3.4 8.7 2 12 2 12s3.6 6 10 6c1.2 0 2.3-.2 3.3-.5"/><path d="M10 10a3 3 0 0 0 4 4"/>'
 };
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]}</svg>`;
-const authBrand = () => `<div class="auth-brand"><span class="brand-mark">${icon('database')}</span><span>RedisShake Web</span></div>`;
+const brandLogo = () => '<img class="brand-logo" src="/redisshake-logo.png" alt="" aria-hidden="true">';
+const authBrand = () => `<div class="auth-brand"><span class="brand-mark">${brandLogo()}</span><span>RedisShake Web</span></div>`;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const lines = value => String(value ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
@@ -71,7 +71,7 @@ async function loadLists() {
 }
 
 function shell(title, subtitle, action, content) {
-  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${icon('database')}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><div><h1>${esc(title)}</h1>${subtitle?`<span class="muted">${esc(subtitle)}</span>`:''}</div>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
+  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${brandLogo()}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><div><h1>${esc(title)}</h1>${subtitle?`<span class="muted">${esc(subtitle)}</span>`:''}</div>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
   on('nav-tasks','click',async()=>{state.page='tasks';await loadLists();render();});
   on('nav-connections','click',async()=>{state.page='connections';await loadLists();render();});
 }
@@ -99,7 +99,7 @@ function renderLogin() {
 
 function renderTasks() {
   shell('同步任务','',state.tasks.length ? `<button class="primary" id="new-task">${icon('plus')} 创建任务</button>` : '',
-    `<div class="card"><h2>任务列表</h2>${state.tasks.length ? state.tasks.map(t=>`<div class="list-item"><div class="details"><strong>${esc(t.name)} <span data-run-status="${esc(t.id)}" class="badge">加载中</span></strong><span class="muted">${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}　·　${esc(t.updatedAt||'未运行')}</span></div><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`).join('') : `<div class="empty"><strong>还没有同步任务</strong><p>先创建源端和目标端连接，再用向导配置同步。</p><button class="primary" id="empty-new">创建同步任务</button></div>`}</div>`);
+    state.tasks.length ? state.tasks.map(t=>`<div class="list-item"><div class="details"><strong>${esc(t.name)} <span data-run-status="${esc(t.id)}" class="badge">加载中</span></strong><span class="muted">${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}　·　${esc(t.updatedAt||'未运行')}</span></div><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`).join('') : `<div class="empty"><strong>还没有同步任务</strong><p>先创建源端和目标端连接，再用向导配置同步。</p><button class="primary" id="empty-new">创建同步任务</button></div>`);
   on('new-task','click',newTask);on('empty-new','click',newTask);
   document.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>openTask(button.dataset.task)));
   state.tasks.forEach(async t=>{try{const runs=await api('/tasks/'+t.id+'/runs');const label=document.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);if(label){const status=runs[0]?.status||'草稿';label.textContent={RUNNING:'运行中',FAILED:'失败',STOPPED:'已停止',STARTING:'启动中',STOPPING:'停止中'}[status]||status;label.className='badge '+status;}}catch{}});
@@ -109,7 +109,7 @@ function newTask(){state.editing={name:'',sourceId:'',targetId:'',dbMap:{'0':0},
 
 function renderConnections() {
   shell('连接管理','',`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
-    `<div class="card"><h2>已保存的连接</h2>${state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>还没有 Redis 连接</strong><p>添加连接后即可在任务向导中选择。</p></div>`}</div>`);
+    state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>还没有 Redis 连接</strong><p>添加连接后即可在任务向导中选择。</p></div>`);
   on('new-connection','click',()=>{state.editing={kind:'standalone'};state.page='connection';render();});
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
