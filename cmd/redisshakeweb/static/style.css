@@ -84,7 +84,7 @@ small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
 .form-page { display: flex; flex: 1; flex-direction: column; margin-bottom: 0; }
 .form-page #connection-form { flex: 1; }
 .form-page #connection-checks:empty { display: none; }
-.form-page .form-actions { margin-top: auto; padding-top: 24px; }
+.form-page .form-actions { justify-content: center; margin-top: auto; padding-top: 24px; }
 .topline { display: flex; justify-content: space-between; align-items: center; gap: 20px; width: 100%; height: 100%; padding: 0 clamp(26px, 3vw, 48px); }
 h1 { margin: 0; font-size: clamp(22px, 2vw, 27px); font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
 .page-title { display: flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
