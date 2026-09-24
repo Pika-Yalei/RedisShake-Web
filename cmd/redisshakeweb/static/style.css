@@ -40,6 +40,19 @@ button.danger:hover:not(:disabled) { background: rgba(215, 0, 21, .14); }
 input, select, textarea { display: block; width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--input); box-shadow: inset 0 1px 2px rgba(28, 28, 30, .025); outline: none; transition: border-color .18s ease, box-shadow .18s ease; }
 input:hover, select:hover, textarea:hover { border-color: rgba(60, 60, 67, .28); }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 122, 255, .13); }
+.select-control { position: relative; width: 100%; min-width: 0; }
+.select-control .select-native { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+.select-trigger { justify-content: space-between; width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--input); box-shadow: inset 0 1px 2px rgba(28, 28, 30, .025); font-weight: 400; text-align: left; }
+.select-trigger:hover:not(:disabled) { border-color: rgba(60, 60, 67, .28); }
+.select-open .select-trigger { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 122, 255, .13); }
+.select-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-trigger svg { width: 17px; height: 17px; flex: none; margin-left: 12px; fill: none; stroke: var(--secondary); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.select-menu { position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; left: 0; max-height: min(260px, 42dvh); padding: 5px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 12px 30px rgba(27, 37, 59, .15); }
+.select-menu[hidden] { display: none; }
+.select-opens-up .select-menu { top: auto; bottom: calc(100% + 6px); }
+.select-option { justify-content: flex-start; width: 100%; min-height: 36px; padding: 8px 10px; border-radius: 8px; background: transparent; font-weight: 500; text-align: left; }
+.select-option:hover:not(:disabled), .select-option:focus-visible { color: var(--accent); background: rgba(0, 122, 255, .1); }
+.select-option[aria-selected="true"] { color: var(--accent); background: rgba(0, 122, 255, .08); }
 textarea { min-height: 94px; resize: vertical; line-height: 1.45; }
 label { display: block; margin-bottom: 7px; color: var(--ink); font-size: 12px; font-weight: 600; }
 small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
@@ -67,6 +80,11 @@ small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
 .nav button:hover { background: var(--hover); color: var(--ink); }
 .nav button.active { color: var(--ink); background: var(--hover); font-weight: 650; }
 .main { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; padding: 48px clamp(26px, 3vw, 48px) 76px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; background: var(--surface); }
+.main:has(> .form-page) { display: flex; flex-direction: column; padding-bottom: 28px; }
+.form-page { display: flex; flex: 1; flex-direction: column; margin-bottom: 0; }
+.form-page #connection-form { flex: 1; }
+.form-page #connection-checks:empty { display: none; }
+.form-page .form-actions { margin-top: auto; padding-top: 24px; }
 .topline { display: flex; justify-content: space-between; align-items: center; gap: 20px; width: 100%; height: 100%; padding: 0 clamp(26px, 3vw, 48px); }
 h1 { margin: 0; font-size: clamp(22px, 2vw, 27px); font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
 .page-title { display: flex; align-items: center; gap: 9px; min-width: 0; white-space: nowrap; }
@@ -157,6 +175,7 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
   .nav button { flex-direction: column; justify-content: center; gap: 3px; min-height: 53px; padding: 5px 3px; font-size: 10px; text-align: center; }
   .nav button .icon { width: 20px; height: 20px; margin: 0; }
   .main { padding: 24px 17px 28px; }
+  .main:has(> .form-page) { min-height: calc(100dvh - 175px - env(safe-area-inset-bottom)); }
   .topline { min-height: 82px; padding: 18px 17px; }
   .topline > button { flex: none; }
   .grid, .grid3 { grid-template-columns: 1fr; gap: 16px; }

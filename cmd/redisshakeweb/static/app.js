@@ -1,4 +1,5 @@
 import { showErrorDialog, showInfoDialog } from './dialog.js?v=feedback-dialog';
+import { enhanceSelects, syncSelect } from './select.js?v=unified-select';
 
 const root = document.querySelector('#app');
 const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
@@ -84,6 +85,7 @@ function shell(path, action, content) {
   document.querySelectorAll('[data-breadcrumb-page]').forEach(button=>button.addEventListener('click',()=>openSection(button.dataset.breadcrumbPage)));
   on('nav-tasks','click',()=>openSection('tasks'));
   on('nav-connections','click',()=>openSection('connections'));
+  queueMicrotask(() => enhanceSelects(root));
 }
 
 function render() {
@@ -128,7 +130,7 @@ function renderConnections() {
 function renderConnectionForm() {
   const c=state.editing||{};
   shell([sections.connections,c.id?'编辑连接':'新建连接'],`<button class="ghost" id="back-connections">返回连接管理</button>`,
-    `<div class="card"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-extra"></div><div class="grid">${field('Redis ACL 用户名','username',c.username)}${field('Redis 密码','password','','password')}</div><div class="actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form><div id="connection-checks"></div></div>`);
+    `<div class="card form-page"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-extra"></div><div class="grid">${field('Redis ACL 用户名','username',c.username)}${field('Redis 密码','password','','password')}</div><div id="connection-checks"></div><div class="actions form-actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form></div>`);
   const renderExtra=()=>{const kind=byId('kind').value;byId('connection-extra').innerHTML=kind==='sentinel'?`<div class="grid">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${field('Sentinel ACL 用户名','sentinelUsername',c.sentinelUsername)}${field('Sentinel 密码','sentinelPassword','','password')}</div>`:`<div class="grid">${field(kind==='cluster'?'Cluster 入口节点 host:port':'Redis 地址 host:port','address',c.address)}</div>`;};
   renderExtra();on('kind','change',renderExtra);
   on('back-connections','click',()=>{state.page='connections';render();});
@@ -152,7 +154,7 @@ function renderWizard() {
   if(state.step===2)content=`<p>预检会测试连接、版本、拓扑、规则和目标 DB 条件，不会删除或修改 Redis 数据。</p>${checksHTML(state.checks)}<button class="secondary" id="rerun-checks">重新预检</button>`;
   if(state.step===3)content=`<div class="grid3"><div><h3>任务</h3>${esc(t.name)}</div><div><h3>源 → 目标</h3>${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}</div><div><h3>目标策略</h3>${t.targetPolicy==='overwrite'?'覆盖同名 Key':'要求目标为空'}</div></div><div class="divider"></div><p class="muted">启动后执行一次全量迁移，并持续同步增量；浏览器关闭不停止任务。</p>`;
   shell([sections.tasks,t.id?'编辑任务':'新建任务'],`<button class="ghost" id="back-tasks">返回任务列表</button>`,
-    `<div class="steps">${steps.map((s,i)=>`<span class="step ${i===state.step?'active':''}">${i+1} · ${s}</span>`).join('')}</div><div class="card">${content}<div class="actions">${state.step>0?'<button class="ghost" id="previous-step">上一步</button>':''}<button class="secondary" id="save-draft">保存草稿</button>${state.step<3?`<button class="primary" id="next-step">${state.step===1?'保存并预检':'下一步'}</button>`:'<button class="primary" id="start-sync">启动同步</button>'}</div></div>`);
+    `<div class="steps">${steps.map((s,i)=>`<span class="step ${i===state.step?'active':''}">${i+1} · ${s}</span>`).join('')}</div><div class="card form-page">${content}<div class="actions form-actions">${state.step>0?'<button class="ghost" id="previous-step">上一步</button>':''}<button class="secondary" id="save-draft">保存草稿</button>${state.step<3?`<button class="primary" id="next-step">${state.step===1?'保存并预检':'下一步'}</button>`:'<button class="primary" id="start-sync">启动同步</button>'}</div></div>`);
   on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
   on('previous-step','click',()=>{captureWizard();state.step--;render();});
   on('next-step','click',async()=>{try{captureWizard();if(state.step===0&&(!t.name||!t.sourceId||!t.targetId))throw new Error('请填写任务名称并选择源端和目标端');if(state.step===1){await saveWizard();await runChecks();}state.step++;render();}catch(error){notice(error.message,true);}});
@@ -196,7 +198,7 @@ async function loadRunDetails(){
   try{
     const runs=await api('/tasks/'+state.task+'/runs');const run=runs[0];
     const summary=byId('run-summary');const log=byId('run-log');if(!summary||!log)return;
-    const selected=byId('log-run-select');if(selected){if(!runs.some(x=>x.id===state.logRun))state.logRun=run?.id||null;selected.innerHTML=runs.map((x,i)=>`<option value="${esc(x.id)}" ${state.logRun===x.id?'selected':''}>第 ${runs.length-i} 次 · ${esc(x.status)} · ${esc(x.startedAt)}</option>`).join('');}
+    const selected=byId('log-run-select');if(selected){if(!runs.some(x=>x.id===state.logRun))state.logRun=run?.id||null;selected.innerHTML=runs.map((x,i)=>`<option value="${esc(x.id)}" ${state.logRun===x.id?'selected':''}>第 ${runs.length-i} 次 · ${esc(x.status)} · ${esc(x.startedAt)}</option>`).join('');syncSelect(selected);}
     byId('run-start').textContent=run?'重新全量运行':'启动同步';
     if(!run){summary.textContent='草稿，尚未运行';log.textContent='暂无运行记录';byId('run-stop').disabled=true;}
     else{state.selectedRun=run.id;summary.innerHTML=`${badge(run.status)}　${badge(run.phase)}<p>开始：${esc(run.startedAt)}${run.endedAt?'　结束：'+esc(run.endedAt):''}</p>${run.error?`<div class="banner error">${esc(run.error)}</div>`:''}`;const busy=['RUNNING','STARTING','STOPPING'].includes(run.status);byId('run-stop').disabled=!busy;byId('run-start').disabled=busy;byId('run-edit').disabled=busy;byId('run-delete').disabled=busy;byId('run-clear').disabled=busy;try{const result=await api('/runs/'+state.logRun+'/logs');log.textContent=(result.truncated?'…仅显示末尾日志\n':'')+result.text;}catch(error){log.textContent=error.message;}}
