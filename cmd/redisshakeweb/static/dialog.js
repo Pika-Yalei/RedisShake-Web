@@ -30,8 +30,11 @@ function showFeedbackDialog(message, error) {
   feedbackDialog ??= createFeedbackDialog();
   feedbackDialog.dataset.tone = error ? 'error' : 'info';
   feedbackDialog.setAttribute('role', error ? 'alertdialog' : 'dialog');
+  feedbackDialog.setAttribute('aria-labelledby', error ? 'feedback-dialog-message' : 'feedback-dialog-title');
+  if (error) feedbackDialog.removeAttribute('aria-describedby');
+  else feedbackDialog.setAttribute('aria-describedby', 'feedback-dialog-message');
   feedbackDialog.querySelector('.feedback-dialog-icon').textContent = error ? '!' : 'i';
-  feedbackDialog.querySelector('#feedback-dialog-title').textContent = error ? '操作未完成' : '提示';
+  feedbackDialog.querySelector('#feedback-dialog-title').textContent = error ? '' : '提示';
   feedbackDialog.querySelector('#feedback-dialog-message').textContent = String(message || (error ? '操作失败，请重试。' : '操作已完成。'));
   if (!feedbackDialog.open) {
     previousFocus = document.activeElement;
