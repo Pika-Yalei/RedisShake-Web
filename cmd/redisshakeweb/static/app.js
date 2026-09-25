@@ -1,4 +1,4 @@
-import { showErrorDialog, showInfoDialog } from './dialog.js?v=feedback-dialog';
+import { showErrorDialog, showInfoDialog } from './dialog.js?v=compact-feedback-dialog';
 import { enhanceSelects, syncSelect } from './select.js?v=unified-select';
 
 const root = document.querySelector('#app');

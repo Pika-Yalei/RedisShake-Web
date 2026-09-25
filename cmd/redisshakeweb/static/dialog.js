@@ -10,8 +10,8 @@ function createFeedbackDialog() {
     <span class="feedback-dialog-icon" aria-hidden="true"></span>
     <h2 id="feedback-dialog-title"></h2>
     <p id="feedback-dialog-message"></p>
-    <div class="feedback-dialog-actions"><button type="button" class="primary">知道了</button></div>
-  </div>`;
+  </div>
+  <div class="feedback-dialog-actions"><button type="button">知道了</button></div>`;
   dialog.querySelector('button').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
     if (previousFocus?.isConnected) previousFocus.focus();
