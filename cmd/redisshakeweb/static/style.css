@@ -123,15 +123,14 @@ p { line-height: 1.55; }
 .feedback-dialog { width: min(350px, calc(100vw - 32px)); max-width: none; max-height: min(80dvh, 600px); padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); background: var(--surface); box-shadow: 0 20px 54px rgba(0, 0, 0, .19); }
 .feedback-dialog[open] { animation: surface-in .22s cubic-bezier(.2,.8,.2,1) both; }
 .feedback-dialog::backdrop { background: rgba(12, 18, 28, .32); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
-.feedback-dialog-header { position: relative; display: grid; place-items: center; min-height: 46px; padding: 8px 48px; border-bottom: 1px solid var(--line); }
-.feedback-dialog-header h2 { margin: 0; font-size: 15px; line-height: 1.35; text-align: center; }
-.feedback-dialog-close { position: absolute; top: 7px; right: 8px; width: 32px; min-height: 32px; padding: 7px; border-radius: 8px; color: var(--secondary); background: transparent; }
+.feedback-dialog-content { position: relative; padding: 24px 24px 22px; text-align: center; }
+.feedback-dialog-close { position: absolute; top: 8px; right: 8px; width: 32px; min-height: 32px; padding: 7px; border-radius: 8px; color: var(--secondary); background: transparent; }
 .feedback-dialog-close:hover { color: var(--ink); background: var(--hover); }
 .feedback-dialog-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
-.feedback-dialog-content { padding: 22px 24px 23px; text-align: center; }
 .feedback-dialog-icon { display: grid; place-items: center; width: 32px; height: 32px; margin-inline: auto; border-radius: 50%; color: var(--accent); background: rgba(0, 122, 255, .09); font-size: 19px; font-weight: 650; line-height: 1; }
 .feedback-dialog[data-tone="error"] .feedback-dialog-icon { color: var(--danger); background: rgba(215, 0, 21, .09); }
-.feedback-dialog p { margin: 12px 0 0; color: var(--secondary); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-dialog h2 { margin: 13px 0 5px; font-size: 17px; line-height: 1.35; }
+.feedback-dialog p { margin: 0; color: var(--secondary); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .feedback-dialog-actions { border-top: 1px solid var(--line); }
 .feedback-dialog-actions button { width: 100%; min-height: 48px; padding: 10px 16px; border: 0; border-radius: 0; color: var(--accent); background: transparent; font-size: 15px; font-weight: 600; }
 .feedback-dialog-actions button:hover { background: var(--hover); }

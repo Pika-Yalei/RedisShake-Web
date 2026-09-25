@@ -6,14 +6,12 @@ function createFeedbackDialog() {
   dialog.className = 'feedback-dialog';
   dialog.setAttribute('aria-labelledby', 'feedback-dialog-title');
   dialog.setAttribute('aria-describedby', 'feedback-dialog-message');
-  dialog.innerHTML = `<div class="feedback-dialog-header">
-    <h2 id="feedback-dialog-title"></h2>
+  dialog.innerHTML = `<div class="feedback-dialog-content">
     <button type="button" class="feedback-dialog-close" aria-label="关闭提示">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9"/></svg>
     </button>
-  </div>
-  <div class="feedback-dialog-content">
     <span class="feedback-dialog-icon" aria-hidden="true"></span>
+    <h2 id="feedback-dialog-title"></h2>
     <p id="feedback-dialog-message"></p>
   </div>
   <div class="feedback-dialog-actions"><button type="button">知道了</button></div>`;
