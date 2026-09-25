@@ -128,11 +128,11 @@ p { line-height: 1.55; }
 .feedback-dialog-close:hover { color: var(--ink); background: var(--hover); }
 .feedback-dialog-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 .feedback-dialog-icon { display: grid; place-items: center; width: 32px; height: 32px; margin-inline: auto; border-radius: 50%; color: var(--accent); background: rgba(0, 122, 255, .09); font-size: 19px; font-weight: 650; line-height: 1; }
-.feedback-dialog[data-tone="error"] .feedback-dialog-icon { color: var(--danger); background: rgba(215, 0, 21, .09); }
+.feedback-dialog[data-tone="error"] .feedback-dialog-icon { display: none; }
 .feedback-dialog h2 { margin: 13px 0 5px; font-size: 17px; line-height: 1.35; }
 .feedback-dialog h2:empty { display: none; }
 .feedback-dialog p { margin: 0; color: var(--secondary); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-.feedback-dialog[data-tone="error"] p { margin-top: 13px; color: var(--ink); font-size: 16px; font-weight: 600; }
+.feedback-dialog[data-tone="error"] p { color: var(--ink); font-size: 16px; font-weight: 600; }
 .feedback-dialog-actions { border-top: 1px solid var(--line); }
 .feedback-dialog-actions button { width: 100%; min-height: 48px; padding: 10px 16px; border: 0; border-radius: 0; color: var(--accent); background: transparent; font-size: 15px; font-weight: 600; }
 .feedback-dialog-actions button:hover { background: var(--hover); }
