@@ -6,13 +6,19 @@ function createFeedbackDialog() {
   dialog.className = 'feedback-dialog';
   dialog.setAttribute('aria-labelledby', 'feedback-dialog-title');
   dialog.setAttribute('aria-describedby', 'feedback-dialog-message');
-  dialog.innerHTML = `<div class="feedback-dialog-content">
-    <span class="feedback-dialog-icon" aria-hidden="true"></span>
+  dialog.innerHTML = `<div class="feedback-dialog-header">
     <h2 id="feedback-dialog-title"></h2>
+    <button type="button" class="feedback-dialog-close" aria-label="关闭提示">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 3.5 9 9m0-9-9 9"/></svg>
+    </button>
+  </div>
+  <div class="feedback-dialog-content">
+    <span class="feedback-dialog-icon" aria-hidden="true"></span>
     <p id="feedback-dialog-message"></p>
   </div>
   <div class="feedback-dialog-actions"><button type="button">知道了</button></div>`;
-  dialog.querySelector('button').addEventListener('click', () => dialog.close());
+  dialog.querySelector('.feedback-dialog-close').addEventListener('click', () => dialog.close());
+  dialog.querySelector('.feedback-dialog-actions button').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
     if (previousFocus?.isConnected) previousFocus.focus();
     else document.querySelector('#app input')?.focus();
@@ -33,7 +39,7 @@ function showFeedbackDialog(message, error) {
     previousFocus = document.activeElement;
     feedbackDialog.showModal();
   }
-  feedbackDialog.querySelector('button').focus();
+  feedbackDialog.querySelector('.feedback-dialog-actions button').focus();
 }
 
 export const showErrorDialog = message => showFeedbackDialog(message, true);
