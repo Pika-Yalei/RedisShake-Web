@@ -1,8 +1,8 @@
-import { dismissToast, showErrorToast, showSuccessToast } from './toast.js?v=lightweight-feedback';
-import { enhanceSelects, syncSelect } from './select.js?v=stable-selects';
+import { dismissToast, showErrorToast, showSuccessToast } from '/toast.js?v=lightweight-feedback';
+import { enhanceSelects, syncSelect } from '/select.js?v=stable-selects';
 
 const root = document.querySelector('#app');
-const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], connectionSearch: '', connectionPage: 1, connectionPageSize: 10, tasks: [], taskSearch: '', taskPage: 1, taskPageSize: 10, editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
+const state = { page: 'tasks', section: 'tasks', pageError: '', session: null, adminUsername: 'admin', connections: [], connectionSearch: '', connectionPage: 1, connectionPageSize: 10, tasks: [], taskSearch: '', taskPage: 1, taskPageSize: 10, editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
@@ -87,8 +87,8 @@ async function boot() {
   try {
     const status = await api('/bootstrap/status');
     if (!status.initialized) { state.page='bootstrap'; render(); return; }
-    try { state.session=await api('/me'); state.adminUsername=state.session.username; } catch { state.page='login'; render(); return; }
-    await loadLists(); render();
+    try { state.session=await api('/me'); state.adminUsername=state.session.username; } catch (error) { if(error.status!==401)throw error;state.session=null;state.page='login';render();return; }
+    await navigate(location.pathname+location.search, {replace:true});
   } catch (error) { root.innerHTML=`<div class="auth-shell"><div class="card auth-card"><h1>暂时无法连接执行器</h1><p>${esc(error.message)}</p><button class="primary" id="retry">重试</button></div></div>`; on('retry','click',boot); }
 }
 
@@ -98,18 +98,89 @@ async function loadLists() {
 
 const sections=Object.freeze({tasks:{label:'同步任务',page:'tasks'},connections:{label:'连接管理',page:'connections'}});
 
+let navigationVersion = 0;
+const taskURL = id => '/tasks/'+encodeURIComponent(id);
+const connectionURL = id => '/connections/'+encodeURIComponent(id)+'/edit';
+const pageLink = (url, label, className='ghost', attributes='') => `<a href="${esc(url)}" data-route class="button-link ${className}" ${attributes}>${label}</a>`;
+
+function resolveRoute(path) {
+  if(path==='/tasks')return {page:'tasks',section:'tasks'};
+  if(path==='/connections')return {page:'connections',section:'connections'};
+  if(path==='/tasks/new')return {page:'wizard',section:'tasks'};
+  if(path==='/connections/new')return {page:'connection',section:'connections'};
+  const task=path.match(/^\/tasks\/([^/]+)(\/edit)?$/);
+  if(task)return {page:task[2]?'wizard':'task',section:'tasks',id:decodeURIComponent(task[1])};
+  const connection=path.match(/^\/connections\/([^/]+)\/edit$/);
+  if(connection)return {page:'connection',section:'connections',id:decodeURIComponent(connection[1])};
+  return {page:'not-found',section:path.startsWith('/connections')?'connections':'tasks'};
+}
+
+async function navigate(path, {replace=false, fromHistory=false}={}) {
+  const version=++navigationVersion;
+  const url=new URL(path,location.origin);
+  if(url.pathname==='/') { url.pathname='/tasks';path=url.pathname+url.search;replace=true; }
+  if(!fromHistory || location.pathname==='/') {
+    const current=location.pathname+location.search;
+    if(replace)history.replaceState(null,'',path);
+    else if(current!==path)history.pushState(null,'',path);
+  }
+  if(state.refresh){clearTimeout(state.refresh);state.refresh=null;}
+  dismissToast();
+  if(!state.session){await boot();return false;}
+  let route;
+  try { route=resolveRoute(location.pathname); } catch { route={page:'not-found',section:'tasks'}; }
+  state.section=route.section;
+  state.page='loading';render();
+  try {
+    const [connections,tasks]=await Promise.all([api('/connections'),api('/tasks')]);
+    if(version!==navigationVersion)return false;
+    state.connections=connections;state.tasks=tasks;
+    state.task=null;state.selectedRun=null;state.logRun=null;
+    state.editing=null;state.step=0;state.checks=[];
+    state.page=route.page;
+    if(route.id){
+      const item=(route.section==='tasks'?tasks:connections).find(item=>item.id===route.id);
+      if(!item)state.page='not-found';
+      else if(route.page==='task')state.task=item.id;
+      else state.editing=structuredClone(item);
+    } else if(route.page==='wizard') {
+      state.editing={name:defaultName('Redis Sync'),sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};
+    } else if(route.page==='connection') {
+      state.editing={name:defaultName('Redis Connection'),kind:'standalone'};
+    }
+    render();
+    return state.page!=='not-found';
+  } catch(error) {
+    if(version!==navigationVersion)return false;
+    if(error.status===401){state.session=null;state.page='login';}
+    else {state.page='route-error';state.pageError=error.message;}
+    render();
+    return false;
+  }
+}
+
+document.addEventListener('click', event=>{
+  const link=event.target.closest('a[data-route]');
+  if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+  event.preventDefault();
+  navigate(link.getAttribute('href'));
+});
+document.addEventListener('keydown', event=>{
+  if(event.key===' '&&event.target.matches('a.title-parent[data-route]')){
+    event.preventDefault();event.target.click();
+  }
+});
+window.addEventListener('popstate',()=>navigate(location.pathname+location.search,{fromHistory:true}));
+
 function shell(path, action, content) {
   const title=path.map((part,index)=>{
     const label=typeof part==='string'?part:part.label;
     const separator=index?'<span class="title-separator" aria-hidden="true">/</span>':'';
     if(index===path.length-1)return `${separator}<span class="title-current">${esc(label)}</span>`;
-    return `${separator}<button type="button" class="title-parent" data-breadcrumb-page="${esc(part.page)}">${esc(label)}</button>`;
+    return `${separator}<a class="title-parent" data-route href="/${esc(part.page)}">${esc(label)}</a>`;
   }).join('');
-  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${brandLogo()}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><h1 class="page-title" aria-label="${esc(path.map(part=>typeof part==='string'?part:part.label).join(' / '))}">${title}</h1>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航"><button id="nav-tasks" class="${state.page==='tasks'||state.page==='task'||state.page==='wizard'?'active':''}">${icon('tasks')}<span>同步任务</span></button><button id="nav-connections" class="${state.page==='connections'||state.page==='connection'?'active':''}">${icon('connections')}<span>连接管理</span></button></nav></aside><main class="main">${content}</main></div>`;
-  const openSection=async page=>{state.page=page;await loadLists();render();};
-  document.querySelectorAll('[data-breadcrumb-page]').forEach(button=>button.addEventListener('click',()=>openSection(button.dataset.breadcrumbPage)));
-  on('nav-tasks','click',()=>openSection('tasks'));
-  on('nav-connections','click',()=>openSection('connections'));
+  document.title=path.map(part=>typeof part==='string'?part:part.label).join(' / ')+' · RedisShake Web';
+  root.innerHTML=`<div class="layout"><div class="sidebar-brand"><div class="brand"><span class="brand-mark">${brandLogo()}</span><span class="brand-copy">RedisShake Web</span></div></div><header class="page-header"><div class="topline"><h1 class="page-title" aria-label="${esc(path.map(part=>typeof part==='string'?part:part.label).join(' / '))}">${title}</h1>${action||''}</div></header><aside class="sidebar"><nav class="nav" aria-label="主导航">${Object.entries(sections).map(([key,section])=>pageLink('/'+key,icon(key)+'<span>'+section.label+'</span>',state.section===key?'active':'',`id="nav-${key}" ${state.section===key?'aria-current="page"':''}`)).join('')}</nav></aside><main class="main">${content}</main></div>`;
   queueMicrotask(() => enhanceSelects(root));
 }
 
@@ -122,23 +193,31 @@ function render() {
   if (state.page==='connection') return renderConnectionForm();
   if (state.page==='wizard') return renderWizard();
   if (state.page==='task') return renderTask();
+  const section=sections[state.section];
+  if(state.page==='loading')return shell([section,'正在加载…'],'','<p role="status">正在加载页面…</p>');
+  if(state.page==='not-found')return shell([section,'页面不存在'],'',`<div class="empty"><strong>页面不存在或已被删除</strong><p>请返回列表选择已有记录。</p>${pageLink('/'+section.page,'返回'+section.label)}</div>`);
+  if(state.page==='route-error'){
+    shell([section,'加载失败'],'',`<div class="empty"><strong>暂时无法加载页面</strong><p>${esc(state.pageError)}</p><button class="primary" id="retry-route">重试</button></div>`);
+    on('retry-route','click',()=>navigate(location.pathname+location.search,{replace:true}));
+  }
 }
 
 function renderBootstrap() {
+  document.title='初始化管理员账号 · RedisShake Web';
   root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<div class="auth-heading"><h1>初始化管理员账号</h1></div><form id="bootstrap-form" class="stack">${field('管理员账号','username',state.adminUsername)}${field('管理员密码','password','RedisShake@123456','password')}${field('再次输入密码','confirm','RedisShake@123456','password')}<button class="primary">创建管理员账号</button></form></div></div>`;
   on('bootstrap-form','submit',async event=>{event.preventDefault();const d=formData('bootstrap-form');state.adminUsername=d.username;if(d.password!==d.confirm)return notice('两次输入的密码不一致',true);try{await send('/bootstrap/init',{username:d.username,password:d.password});state.page='login';notice('管理员账号已创建，请登录');}catch(error){notice(error.message,true);}});
 }
 
 function renderLogin() {
+  document.title='登录 · RedisShake Web';
   root.innerHTML=`<div class="auth-shell"><div class="card auth-card">${authBrand()}<form id="login-form" class="stack">${field('账号','username',state.adminUsername)}${field('密码','password','','password')}<button class="primary">登录</button></form></div></div>`;
-  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);await loadLists();state.page='tasks';render();}catch(error){byId('password').value='';notice(error.message,true);}});
+  on('login-form','submit',async event=>{event.preventDefault();const credentials=formData('login-form');state.adminUsername=credentials.username;try{state.session=await send('/login',credentials);await navigate(location.pathname+location.search,{replace:true});}catch(error){byId('password').value='';notice(error.message,true);}});
 }
 
 function renderTasks() {
   shell([sections.tasks],'',
-    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="task-search" aria-label="搜索任务" placeholder="任务名称、源连接或目标连接" value="${esc(state.taskSearch)}" autocomplete="off" aria-controls="task-table"></div><button class="primary" id="new-task">${icon('plus')} 新建任务</button></div><div id="task-table" class="table-panel"></div>`);
+    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="task-search" aria-label="搜索任务" placeholder="任务名称、源连接或目标连接" value="${esc(state.taskSearch)}" autocomplete="off" aria-controls="task-table"></div>${pageLink('/tasks/new',icon('plus')+' 新建任务','primary','id="new-task"')}</div><div id="task-table" class="table-panel"></div>`);
   on('task-search','input',event=>{state.taskSearch=event.target.value;state.taskPage=1;renderTaskTable();});
-  on('new-task','click',newTask);
   renderTaskTable();
 }
 function renderTaskTable(focusId) {
@@ -150,11 +229,10 @@ function renderTaskTable(focusId) {
     esc(t.name),esc(connectionName(t.sourceId)),esc(connectionName(t.targetId)),
     `<span data-run-status="${esc(t.id)}">${badge('加载中')}</span>`,
     esc(t.updatedAt?new Date(t.updatedAt).toLocaleString('zh-CN',{hour12:false}):'—'),
-    `<div class="actions"><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`
+    `<div class="actions">${pageLink(taskURL(t.id),'查看详情','secondary',`data-task="${esc(t.id)}"`)}</div>`
   ]);
   const panel=byId('task-table');
   panel.innerHTML=tableHTML('同步任务列表',columns,rows,query?'未找到匹配的任务':'暂无同步任务')+paginationHTML('task',pagination);
-  panel.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>openTask(button.dataset.task)));
   bindPagination('task',renderTaskTable,focusId);
   pagination.items.forEach(async t=>{
     const label=panel.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);
@@ -171,16 +249,11 @@ function defaultName(prefix){
   const now=new Date();
   return `${prefix} ${now.getFullYear()}${[now.getMonth()+1,now.getDate(),now.getHours(),now.getMinutes()].map(value=>String(value).padStart(2,'0')).join('')}`;
 }
-function newTask(){
-  state.editing={name:defaultName('Redis Sync'),sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};
-  state.step=0;state.checks=[];state.page='wizard';render();
-}
 
 function renderConnections() {
   shell([sections.connections],'',
-    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="connection-search" aria-label="搜索连接" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div><button class="primary" id="new-connection">${icon('plus')} 新建连接</button></div><div id="connection-table" class="table-panel"></div>`);
+    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="connection-search" aria-label="搜索连接" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div>${pageLink('/connections/new',icon('plus')+' 新建连接','primary','id="new-connection"')}</div><div id="connection-table" class="table-panel"></div>`);
   on('connection-search','input',event=>{state.connectionSearch=event.target.value;state.connectionPage=1;renderConnectionTable();});
-  on('new-connection','click',()=>{state.editing={name:defaultName('Redis Connection'),kind:'standalone'};state.page='connection';render();});
   renderConnectionTable();
 }
 
@@ -194,10 +267,9 @@ function renderConnectionTable(focusId) {
     esc(c.name),
     esc(kinds[c.kind]||c.kind),
     esc(c.kind==='sentinel'?c.sentinelAddress:c.address),
-    `<div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div>`
+    `<div class="actions">${pageLink(connectionURL(c.id),'编辑','secondary',`data-edit-connection="${esc(c.id)}"`)}<button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div>`
   ]);
   byId('connection-table').innerHTML=tableHTML('Redis 连接列表',columns,rows,query?'未找到匹配的连接':'暂无 Redis 连接')+paginationHTML('connection',pagination);
-  document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();dismissToast();render();}catch(error){notice(error.message,true);}}));
   bindPagination('connection',renderConnectionTable,focusId);
 }
@@ -215,7 +287,7 @@ function connectionAuthFields(c, sentinel=false) {
 
 function renderConnectionForm() {
   const c=state.editing||{};
-  shell([sections.connections,c.id?'编辑连接':'新建连接'],`<button class="ghost" id="back-connections">返回连接管理</button>`,
+  shell([sections.connections,c.id?'编辑连接':'新建连接'],pageLink('/connections','返回连接管理','ghost','id="back-connections"'),
     `<div class="card form-page"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div>${connectionAuthFields(c)}<div id="connection-address">${field('Redis 地址 host:port','address',c.address)}</div><div id="connection-sentinel" class="stack">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${connectionAuthFields(c,true)}</div><div class="actions form-actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form></div>`);
   const updateFields=()=>{
     const kind=byId('kind').value, sentinel=kind==='sentinel';
@@ -235,7 +307,6 @@ function renderConnectionForm() {
   };
   updateFields();
   for(const name of ['kind','authMode','sentinelAuthMode'])on(name,'change',updateFields);
-  on('back-connections','click',()=>{state.page='connections';render();});
   const input=()=>({...formData('connection-form'),id:c.id});
   on('test-connection','click',async()=>{
     try {
@@ -248,7 +319,7 @@ function renderConnectionForm() {
       showSuccessToast(checks.map(check=>`${check.name}：${check.message}`).join('\n'));
     } catch(error) { notice(error.message,true); }
   });
-  on('connection-form','submit',async event=>{event.preventDefault();try{await send(c.id?'/connections/'+c.id:'/connections',input(),c.id?'PUT':'POST');await loadLists();state.page='connections';notice('连接已保存');}catch(error){notice(error.message,true);}});
+  on('connection-form','submit',async event=>{event.preventDefault();try{await send(c.id?'/connections/'+c.id:'/connections',input(),c.id?'PUT':'POST');if(await navigate('/connections'))showSuccessToast('连接已保存');}catch(error){notice(error.message,true);}});
 }
 
 function checksHTML(checks) { return `<div style="margin-top:20px">${checks.map(c=>`<div class="check ${c.ok?'ok':'bad'}"><strong>${c.ok?'✓':'!'} ${esc(c.name)}</strong><div class="muted">${esc(c.message)}</div></div>`).join('')}</div>`; }
@@ -265,27 +336,50 @@ function renderWizard() {
   if(state.step===1)content=`<form id="wizard-form" class="stack">${area('DB 映射','dbMap',mapText(t.dbMap),'每行一组，例如 0:0；不能多个源 DB 指向同一目标 DB。')}<div class="grid">${area('包含的 Key 前缀','allowPrefixes',(r.allowPrefixes||[]).join('\n'),'每行一个；留空表示全部通过。')}${area('排除的 Key 前缀','blockPrefixes',(r.blockPrefixes||[]).join('\n'))}${area('包含的 Key 正则','allowRegex',(r.allowRegex||[]).join('\n'),'每行一个 Go 正则表达式。')}${area('排除的 Key 正则','blockRegex',(r.blockRegex||[]).join('\n'))}${area('仅增量：包含命令','allowCommands',(r.allowCommands||[]).join('\n'),'每行一个命令；不影响全量导入。')}${area('仅增量：排除命令','blockCommands',(r.blockCommands||[]).join('\n'),'多 Key 部分匹配时整条命令跳过。')}</div><div class="field"><label for="targetPolicy">目标端已有数据</label><select name="targetPolicy" id="targetPolicy"><option value="require_empty" ${t.targetPolicy==='require_empty'?'selected':''}>要求目标 DB 为空（默认）</option><option value="overwrite" ${t.targetPolicy==='overwrite'?'selected':''}>覆盖同名 Key</option></select></div></form>`;
   if(state.step===2)content=`<p>预检会测试连接、版本、拓扑、规则和目标 DB 条件，不会删除或修改 Redis 数据。</p>${checksHTML(state.checks)}<button class="secondary" id="rerun-checks">重新预检</button>`;
   if(state.step===3)content=`<div class="grid3"><div><h3>任务</h3>${esc(t.name)}</div><div><h3>源 → 目标</h3>${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}</div><div><h3>目标策略</h3>${t.targetPolicy==='overwrite'?'覆盖同名 Key':'要求目标为空'}</div></div><div class="divider"></div><p class="muted">启动后执行一次全量迁移，并持续同步增量；浏览器关闭不停止任务。</p>`;
-  shell([sections.tasks,t.id?'编辑任务':'新建任务'],`<button class="ghost" id="back-tasks">返回任务列表</button>`,
+  shell([sections.tasks,t.id?'编辑任务':'新建任务'],pageLink('/tasks','返回任务列表','ghost','id="back-tasks"'),
     `<div class="steps">${steps.map((s,i)=>`<span class="step ${i===state.step?'active':''}">${i+1} · ${s}</span>`).join('')}</div><div class="card form-page">${content}<div class="actions form-actions">${state.step>0?'<button class="ghost" id="previous-step">上一步</button>':''}${state.step<3?`<button class="primary" id="next-step">${state.step===1?'开始预检':'下一步'}</button>`:'<button class="primary" id="start-sync">启动同步</button>'}</div></div>`);
-  on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
   on('previous-step','click',()=>{captureWizard();state.step--;render();});
-  on('next-step','click',async()=>{try{captureWizard();if(state.step===0&&(!t.name||!t.sourceId||!t.targetId))throw new Error('请填写任务名称并选择源端和目标端');if(state.step===1){await persistTaskForPreflight();await runChecks();}state.step++;render();}catch(error){notice(error.message,true);}});
+  on('next-step','click',async event=>{
+    const version=navigationVersion,button=event.currentTarget;
+    button.disabled=true;
+    try {
+      captureWizard();
+      if(state.step===0&&(!t.name||!t.sourceId||!t.targetId))throw new Error('请填写任务名称并选择源端和目标端');
+      if(state.step===1){
+        if(!await persistTaskForPreflight())return;
+        await runChecks();
+      }
+      if(version!==navigationVersion)return;
+      state.step++;render();
+    } catch(error) { if(version===navigationVersion)notice(error.message,true); }
+    finally { if(button.isConnected)button.disabled=false; }
+  });
   on('rerun-checks','click',async()=>{try{await runChecks();notice('预检已更新');}catch(error){notice(error.message,true);}});
-  on('start-sync','click',async()=>{try{const run=await send('/tasks/'+t.id+'/start',{});state.task=t.id;state.selectedRun=run.id;state.page='task';await loadLists();notice('同步任务已启动');}catch(error){if(error.details?.checks)state.checks=error.details.checks;notice(error.message,true);}});
+  on('start-sync','click',async()=>{try{await send('/tasks/'+t.id+'/start',{});if(await navigate(taskURL(t.id)))showSuccessToast('同步任务已启动');}catch(error){if(error.details?.checks)state.checks=error.details.checks;notice(error.message,true);}});
 }
 function captureWizard(){if(!byId('wizard-form'))return;const d=formData('wizard-form');if(state.step===0)Object.assign(state.editing,{name:d.name,sourceId:d.sourceId,targetId:d.targetId});if(state.step===1){state.editing.dbMap=parseMap(d.dbMap);state.editing.rules={allowPrefixes:lines(d.allowPrefixes),blockPrefixes:lines(d.blockPrefixes),allowRegex:lines(d.allowRegex),blockRegex:lines(d.blockRegex),allowCommands:lines(d.allowCommands),blockCommands:lines(d.blockCommands)};state.editing.targetPolicy=d.targetPolicy;}}
-async function persistTaskForPreflight(){const t=state.editing;if(!t.name)throw new Error('任务名称不能为空');const result=await send(t.id?'/tasks/'+t.id:'/tasks',t,t.id?'PUT':'POST');state.editing={...t,id:result.id};await loadLists();}
-async function runChecks(){state.checks=await send('/tasks/'+state.editing.id+'/preflight',{});}
+async function persistTaskForPreflight(){
+  const t=state.editing,version=navigationVersion;
+  if(!t.name)throw new Error('任务名称不能为空');
+  const result=await send(t.id?'/tasks/'+t.id:'/tasks',t,t.id?'PUT':'POST');
+  if(version!==navigationVersion)return false;
+  state.editing={...t,id:result.id};
+  history.replaceState(null,'',taskURL(result.id)+'/edit');
+  return true;
+}
+async function runChecks(){
+  const version=navigationVersion;
+  const checks=await send('/tasks/'+state.editing.id+'/preflight',{});
+  if(version===navigationVersion)state.checks=checks;
+}
 
-async function openTask(id){state.task=id;state.selectedRun=null;state.logRun=null;state.page='task';await loadLists();render();}
 function renderTask(){
-  const t=state.tasks.find(x=>x.id===state.task);if(!t){state.page='tasks';render();return;}
-  shell([sections.tasks,t.name],`<button class="ghost" id="back-tasks">返回任务列表</button>`,
+  const t=state.tasks.find(x=>x.id===state.task);if(!t){state.page='not-found';render();return;}
+  shell([sections.tasks,t.name],pageLink('/tasks','返回任务列表','ghost','id="back-tasks"'),
     `<div class="card"><h2>运行状态</h2><div id="run-summary" class="muted">正在读取运行记录…</div><div class="actions"><button class="primary" id="run-start">${state.selectedRun?'重新全量运行':'启动同步'}</button><button class="secondary" id="run-stop">停止</button><button class="ghost" id="run-edit">编辑</button><button class="ghost" id="run-copy">复制任务</button><button class="danger" id="run-delete">删除任务</button></div></div><div class="card"><h2>目标 DB 清理</h2><p class="muted">此操作会清空所选目标 DB 内的所有 Key，不受任务 Key 规则限制。执行前需二次确认。</p><button class="danger" id="run-clear">清空所选目标 DB</button></div><div class="card"><div class="row"><h2>RedisShake 日志</h2><div class="actions" style="margin:0"><select id="log-run-select" aria-label="选择运行记录" style="min-width:190px"></select><button class="ghost" id="refresh-logs">刷新</button></div></div><pre class="log" id="run-log">暂无运行记录</pre></div>`);
-  on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
-  on('run-edit','click',()=>{state.editing=structuredClone(t);state.step=0;state.page='wizard';render();});
+  on('run-edit','click',()=>navigate(taskURL(t.id)+'/edit'));
   on('run-copy','click',async()=>{try{await send('/tasks/'+t.id+'/copy',{});await loadLists();notice('任务已复制');}catch(error){notice(error.message,true);}});
-  on('run-delete','click',async()=>{if(!confirm('删除任务记录？不会删除 Redis 数据。'))return;try{await api('/tasks/'+t.id,{method:'DELETE'});await loadLists();state.page='tasks';dismissToast();render();}catch(error){notice(error.message,true);}});
+  on('run-delete','click',async()=>{if(!confirm('删除任务记录？不会删除 Redis 数据。'))return;try{await api('/tasks/'+t.id,{method:'DELETE'});await navigate('/tasks');}catch(error){notice(error.message,true);}});
   on('run-start','click',async()=>{if(state.selectedRun&&!confirm('重新全量运行会从源端重新读取数据，不会断点续传。继续？'))return;try{const run=await send('/tasks/'+t.id+'/start',{});state.selectedRun=run.id;notice('同步已启动');}catch(error){notice(error.message,true);}});
   on('run-stop','click',async()=>{if(!state.selectedRun)return;try{await send('/runs/'+state.selectedRun+'/stop',{});notice('正在停止');}catch(error){notice(error.message,true);}});
   on('refresh-logs','click',loadRunDetails);
@@ -305,16 +399,18 @@ function renderTask(){
 }
 async function loadRunDetails(){
   if(state.page!=='task')return;
+  const version=navigationVersion,taskID=state.task;
+  const isCurrent=()=>version===navigationVersion&&state.page==='task'&&state.task===taskID;
   if(state.refresh){clearTimeout(state.refresh);state.refresh=null;}
   try{
-    const runs=await api('/tasks/'+state.task+'/runs');const run=runs[0];
+    const runs=await api('/tasks/'+taskID+'/runs');if(!isCurrent())return;const run=runs[0];
     const summary=byId('run-summary');const log=byId('run-log');if(!summary||!log)return;
     const selected=byId('log-run-select');if(selected){if(!runs.some(x=>x.id===state.logRun))state.logRun=run?.id||null;selected.innerHTML=runs.map((x,i)=>`<option value="${esc(x.id)}" ${state.logRun===x.id?'selected':''}>第 ${runs.length-i} 次 · ${esc(x.status)} · ${esc(x.startedAt)}</option>`).join('');syncSelect(selected);}
     byId('run-start').textContent=run?'重新全量运行':'启动同步';
     if(!run){summary.textContent='尚未运行';log.textContent='暂无运行记录';byId('run-stop').disabled=true;}
-    else{state.selectedRun=run.id;summary.innerHTML=`${badge(run.status)}　${badge(run.phase)}<p>开始：${esc(run.startedAt)}${run.endedAt?'　结束：'+esc(run.endedAt):''}</p>${run.error?`<div class="banner error">${esc(run.error)}</div>`:''}`;const busy=['RUNNING','STARTING','STOPPING'].includes(run.status);byId('run-stop').disabled=!busy;byId('run-start').disabled=busy;byId('run-edit').disabled=busy;byId('run-delete').disabled=busy;byId('run-clear').disabled=busy;try{const result=await api('/runs/'+state.logRun+'/logs');log.textContent=(result.truncated?'…仅显示末尾日志\n':'')+result.text;}catch(error){log.textContent=error.message;}}
-  }catch(error){const summary=byId('run-summary');if(summary)summary.textContent='执行器暂不可用：'+error.message;}
-  if(state.page==='task')state.refresh=setTimeout(loadRunDetails,4000);
+    else{state.selectedRun=run.id;summary.innerHTML=`${badge(run.status)}　${badge(run.phase)}<p>开始：${esc(run.startedAt)}${run.endedAt?'　结束：'+esc(run.endedAt):''}</p>${run.error?`<div class="banner error">${esc(run.error)}</div>`:''}`;const busy=['RUNNING','STARTING','STOPPING'].includes(run.status);byId('run-stop').disabled=!busy;byId('run-start').disabled=busy;byId('run-edit').disabled=busy;byId('run-delete').disabled=busy;byId('run-clear').disabled=busy;try{const result=await api('/runs/'+state.logRun+'/logs');if(!isCurrent())return;log.textContent=(result.truncated?'…仅显示末尾日志\n':'')+result.text;}catch(error){log.textContent=error.message;}}
+  }catch(error){if(!isCurrent())return;const summary=byId('run-summary');if(summary)summary.textContent='执行器暂不可用：'+error.message;}
+  if(isCurrent())state.refresh=setTimeout(loadRunDetails,4000);
 }
 
 boot();

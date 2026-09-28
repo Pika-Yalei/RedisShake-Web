@@ -28,6 +28,8 @@ cd dist/redis-shake-web-$(go env GOOS)-$(go env GOARCH)
 
 支持交叉构建 `darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`，例如 `bash scripts/build.sh linux amd64`。执行 `bash scripts/package.sh` 可在 `dist/release/` 生成四个可解压运行的 `.tar.gz` 包和 `SHA256SUMS`。RedisShake 内核代码已直接合入项目的同一个 Go 模块：[单任务入口](internal/kernel/run.go)与[内部包](internal)基于官方 v4.6.2，包含本项目的增量过滤、进程存活与安全处理修改；[MIT 许可证](LICENSE.txt)保留在仓库根目录。发布包只有一个 `redis-shake-web` 可执行文件：Web 将请求交给常驻执行器，执行器每启动一个任务，就以内部 `task` 模式创建一个独立进程。Web 重启不影响已运行的任务进程。构建产物还包含文档、版本记录及 RedisShake 许可证；Docker 镜像也从仓库内源码构建。
 
+页面可以通过 URL 直接访问：任务列表 `/tasks`、新建任务 `/tasks/new`、任务详情 `/tasks/{id}`、编辑任务 `/tasks/{id}/edit`，以及连接列表 `/connections`、新建连接 `/connections/new`、编辑连接 `/connections/{id}/edit`。支持刷新、浏览器前进后退和新标签页打开；未登录时登录后继续进入原地址。
+
 ## 自动化测试
 
 测试源码和统一入口集中在 [tests](tests/README.md) 目录。在仓库根目录运行：

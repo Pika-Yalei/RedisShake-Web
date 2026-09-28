@@ -166,7 +166,7 @@ func serveWeb(socketDir, listen, assetsDir string) error {
 		w.WriteHeader(resp.StatusCode)
 		_, _ = io.Copy(w, resp.Body)
 	}))
-	mux.Handle("/", http.FileServer(http.FS(static)))
+	mux.Handle("/", frontendHandler(static))
 	srv := &http.Server{Addr: listen, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	fmt.Printf("Web 访问地址：http://%s\n", listen)
 	err = srv.ListenAndServe()
