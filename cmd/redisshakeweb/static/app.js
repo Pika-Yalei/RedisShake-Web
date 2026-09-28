@@ -117,7 +117,12 @@ function renderTasks() {
   state.tasks.forEach(async t=>{try{const runs=await api('/tasks/'+t.id+'/runs');const label=document.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);if(label){const status=runs[0]?.status||'未运行';label.textContent={RUNNING:'运行中',FAILED:'失败',STOPPED:'已停止',STARTING:'启动中',STOPPING:'停止中'}[status]||status;label.className='badge '+status;}}catch{}});
 }
 function connectionName(id) { return state.connections.find(x=>x.id===id)?.name || '未选择连接'; }
-function newTask(){state.editing={name:'',sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};state.step=0;state.checks=[];state.page='wizard';render();}
+function newTask(){
+  const now=new Date();
+  const name=`${now.getFullYear()}${[now.getMonth()+1,now.getDate(),now.getHours(),now.getMinutes()].map(value=>String(value).padStart(2,'0')).join('')}`;
+  state.editing={name,sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};
+  state.step=0;state.checks=[];state.page='wizard';render();
+}
 
 function renderConnections() {
   shell([sections.connections],`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
