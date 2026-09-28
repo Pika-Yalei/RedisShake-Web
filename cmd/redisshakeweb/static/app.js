@@ -1,5 +1,5 @@
 import { showErrorDialog, showInfoDialog } from './dialog.js?v=error-without-title';
-import { enhanceSelects, syncSelect } from './select.js?v=unified-select';
+import { enhanceSelects, syncSelect } from './select.js?v=stable-selects';
 
 const root = document.querySelector('#app');
 const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };

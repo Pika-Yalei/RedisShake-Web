@@ -8,7 +8,16 @@ function closeMenu(focusTrigger = false) {
   control.querySelector('.select-menu').hidden = true;
   const trigger = control.querySelector('.select-trigger');
   trigger.setAttribute('aria-expanded', 'false');
-  if (focusTrigger) trigger.focus();
+  if (focusTrigger) trigger.focus({ preventScroll: true });
+}
+
+function focusOption(menu, option) {
+  if (!option) return;
+  option.focus({ preventScroll: true });
+  const top = option.offsetTop;
+  const bottom = top + option.offsetHeight;
+  if (top < menu.scrollTop) menu.scrollTop = top;
+  else if (bottom > menu.scrollTop + menu.clientHeight) menu.scrollTop = bottom - menu.clientHeight;
 }
 
 function openMenu(control) {
@@ -20,14 +29,14 @@ function openMenu(control) {
   control.classList.toggle('select-opens-up', window.innerHeight - control.getBoundingClientRect().bottom < Math.min(menu.scrollHeight + 8, 270) && control.getBoundingClientRect().top > window.innerHeight - control.getBoundingClientRect().bottom);
   control.querySelector('.select-trigger').setAttribute('aria-expanded', 'true');
   openControl = control;
-  (menu.querySelector('[aria-selected="true"]') || menu.querySelector('[role="option"]'))?.focus();
+  focusOption(menu, menu.querySelector('[aria-selected="true"]') || menu.querySelector('[role="option"]'));
 }
 
 function moveOption(menu, step) {
   const options = [...menu.querySelectorAll('[role="option"]:not(:disabled)')];
   const current = options.indexOf(document.activeElement);
   const next = options[(current + step + options.length) % options.length];
-  next?.focus();
+  focusOption(menu, next);
 }
 
 export function syncSelect(select) {
@@ -113,7 +122,7 @@ export function enhanceSelects(container) {
       } else if (event.key === 'Home' || event.key === 'End') {
         event.preventDefault();
         const options = [...menu.querySelectorAll('[role="option"]:not(:disabled)')];
-        (event.key === 'Home' ? options[0] : options.at(-1))?.focus();
+        focusOption(menu, event.key === 'Home' ? options[0] : options.at(-1));
       }
     });
     select.addEventListener('change', () => syncSelect(select));
