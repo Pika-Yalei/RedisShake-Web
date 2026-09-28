@@ -133,7 +133,7 @@ function newTask(){
 
 function renderConnections() {
   shell([sections.connections],'',
-    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="connection-search" aria-label="搜索连接" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div><button class="primary" id="new-connection">${icon('plus')} 新建连接</button></div><div id="connection-table"></div>`);
+    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="connection-search" aria-label="搜索连接" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div><button class="primary" id="new-connection">${icon('plus')} 新建连接</button></div><div id="connection-table" class="table-panel"></div>`);
   on('connection-search','input',event=>{state.connectionSearch=event.target.value;state.connectionPage=1;renderConnectionTable();});
   on('new-connection','click',()=>{state.editing={name:defaultName('Redis Connection'),kind:'standalone'};state.page='connection';render();});
   renderConnectionTable();
