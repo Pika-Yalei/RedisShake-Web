@@ -27,17 +27,29 @@ type Connection struct {
 	Name             string `json:"name"`
 	Kind             string `json:"kind"`
 	Address          string `json:"address"`
+	AuthMode         string `json:"authMode,omitempty"`
 	Username         string `json:"username"`
 	Password         string `json:"password,omitempty"`
 	SentinelMaster   string `json:"sentinelMaster,omitempty"`
 	SentinelAddress  string `json:"sentinelAddress,omitempty"`
+	SentinelAuthMode string `json:"sentinelAuthMode,omitempty"`
 	SentinelUsername string `json:"sentinelUsername,omitempty"`
 	SentinelPassword string `json:"sentinelPassword,omitempty"`
 }
 
-func (c Connection) safe() Connection {
+type safeConnection struct {
+	Connection
+	HasPassword         bool `json:"hasPassword"`
+	HasSentinelPassword bool `json:"hasSentinelPassword"`
+}
+
+func (c Connection) safe() safeConnection {
+	c.AuthMode = inferAuthMode(c.AuthMode, c.Username, c.Password)
+	c.SentinelAuthMode = inferAuthMode(c.SentinelAuthMode, c.SentinelUsername, c.SentinelPassword)
+	result := safeConnection{HasPassword: c.Password != "", HasSentinelPassword: c.SentinelPassword != ""}
 	c.Password, c.SentinelPassword = "", ""
-	return c
+	result.Connection = c
+	return result
 }
 
 type Rules struct {
@@ -198,13 +210,13 @@ func (s *store) connection(id string) (Connection, error) {
 	return c, err
 }
 
-func (s *store) connections() ([]Connection, error) {
+func (s *store) connections() ([]safeConnection, error) {
 	rows, err := s.db.Query("SELECT payload FROM connections ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []Connection{}
+	out := []safeConnection{}
 	for rows.Next() {
 		var payload string
 		if err := rows.Scan(&payload); err != nil {

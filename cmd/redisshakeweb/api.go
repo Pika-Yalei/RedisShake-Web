@@ -59,6 +59,12 @@ func (a *app) createConnection(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &c) {
 		return
 	}
+	prepared, err := prepareConnection(c, Connection{})
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	c = prepared
 	if err := validateConnection(c); err != nil {
 		writeError(w, 400, err.Error())
 		return
@@ -88,11 +94,10 @@ func (a *app) updateConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.ID = id
-	if c.Password == "" {
-		c.Password = old.Password
-	}
-	if c.SentinelPassword == "" {
-		c.SentinelPassword = old.SentinelPassword
+	c, err = prepareConnection(c, old)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
 	}
 	if err := validateConnection(c); err != nil {
 		writeError(w, 400, err.Error())
@@ -130,16 +135,19 @@ func (a *app) testConnection(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &c) {
 		return
 	}
+	var old Connection
 	if c.ID != "" {
-		old, err := a.store.connection(c.ID)
-		if err == nil {
-			if c.Password == "" {
-				c.Password = old.Password
-			}
-			if c.SentinelPassword == "" {
-				c.SentinelPassword = old.SentinelPassword
-			}
+		var err error
+		old, err = a.store.connection(c.ID)
+		if err != nil {
+			writeError(w, 404, "连接不存在")
+			return
 		}
+	}
+	c, err := prepareConnection(c, old)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()

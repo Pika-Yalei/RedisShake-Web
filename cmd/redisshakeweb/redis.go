@@ -17,6 +17,9 @@ import (
 )
 
 func validateConnection(c Connection) error {
+	if _, err := normalizeConnectionAuth(c); err != nil {
+		return err
+	}
 	if strings.TrimSpace(c.Name) == "" {
 		return errors.New("连接名称不能为空")
 	}
@@ -37,6 +40,11 @@ func validateConnection(c Connection) error {
 }
 
 func redisClient(c Connection, db int) (redis.UniversalClient, error) {
+	var err error
+	c, err = normalizeConnectionAuth(c)
+	if err != nil {
+		return nil, err
+	}
 	if err := validateConnection(c); err != nil {
 		return nil, err
 	}
@@ -46,11 +54,14 @@ func redisClient(c Connection, db int) (redis.UniversalClient, error) {
 	}
 	switch c.Kind {
 	case "cluster":
-		return redis.NewClusterClient(&redis.ClusterOptions{Addrs: opts.Addrs, Username: opts.Username, Password: opts.Password, DialTimeout: opts.DialTimeout, ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout}), nil
+		return redis.NewClusterClient(&redis.ClusterOptions{Addrs: opts.Addrs, Username: opts.Username, Password: opts.Password, DialTimeout: opts.DialTimeout, ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout, Dialer: redisAuthDialer(c.Username, c.Password)}), nil
 	case "sentinel":
+		if c.AuthMode == authUsername || c.SentinelAuthMode == authUsername {
+			return sentinelEmptyPasswordClient(c, db), nil
+		}
 		return redis.NewFailoverClient(&redis.FailoverOptions{MasterName: c.SentinelMaster, SentinelAddrs: []string{c.SentinelAddress}, SentinelUsername: c.SentinelUsername, SentinelPassword: c.SentinelPassword, Username: c.Username, Password: c.Password, DB: db, DialTimeout: opts.DialTimeout, ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout}), nil
 	default:
-		return redis.NewClient(&redis.Options{Addr: c.Address, Username: c.Username, Password: c.Password, DB: db, DialTimeout: opts.DialTimeout, ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout}), nil
+		return redis.NewClient(&redis.Options{Addr: c.Address, Username: c.Username, Password: c.Password, DB: db, DialTimeout: opts.DialTimeout, ReadTimeout: opts.ReadTimeout, WriteTimeout: opts.WriteTimeout, Dialer: redisAuthDialer(c.Username, c.Password)}), nil
 	}
 }
 

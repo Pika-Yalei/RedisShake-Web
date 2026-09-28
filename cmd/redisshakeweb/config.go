@@ -22,6 +22,15 @@ func tomlStrings(values []string) string {
 }
 
 func generateConfig(task Task, source, target Connection, runDir string, downgrade bool) (string, error) {
+	var err error
+	source, err = normalizeConnectionAuth(source)
+	if err != nil {
+		return "", err
+	}
+	target, err = normalizeConnectionAuth(target)
+	if err != nil {
+		return "", err
+	}
 	if err := validateTask(task, source, target); err != nil {
 		return "", err
 	}

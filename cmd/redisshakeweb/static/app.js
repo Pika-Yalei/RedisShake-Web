@@ -18,8 +18,8 @@ const authBrand = () => `<div class="auth-brand"><span class="brand-mark">${bran
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const lines = value => String(value ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 const badge = (value) => `<span class="badge ${esc(value)}">${esc({RUNNING:'运行中',STARTING:'启动中',STOPPING:'停止中',STOPPED:'已停止',FAILED:'失败',FULL_SYNC:'全量同步',INCREMENTAL:'增量同步',UNKNOWN:'阶段待识别'}[value] || value || '未运行')}</span>`;
-const field = (label, name, value='', type='text', hint='') => {
-  const input = `<input id="${esc(name)}" name="${esc(name)}" type="${esc(type)}" value="${esc(value)}" autocomplete="off">`;
+const field = (label, name, value='', type='text', hint='', autocomplete='off') => {
+  const input = `<input id="${esc(name)}" name="${esc(name)}" type="${esc(type)}" value="${esc(value)}" autocomplete="${esc(autocomplete)}">`;
   const control = type === 'password' ? `<div class="password-control">${input}<button class="password-toggle" type="button" data-password-toggle="${esc(name)}" aria-label="显示密码" aria-pressed="false" title="显示密码">${icon('eye')}</button></div>` : input;
   return `<div class="field"><label for="${esc(name)}">${esc(label)}</label>${control}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
 };
@@ -127,16 +127,47 @@ function renderConnections() {
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
 }
 
+const connectionAuthModes = Object.freeze({none:'无认证',password:'仅密码',username:'仅账号（无密码）',username_password:'账号和密码'});
+function connectionAuthFields(c, sentinel=false) {
+  const modeName=sentinel?'sentinelAuthMode':'authMode';
+  const userName=sentinel?'sentinelUsername':'username';
+  const passwordName=sentinel?'sentinelPassword':'password';
+  const label=sentinel?'Sentinel':'Redis';
+  const hasPassword=sentinel?c.hasSentinelPassword:c.hasPassword;
+  const mode=c[modeName]||(c[userName]?(hasPassword?'username_password':'username'):(hasPassword?'password':'none'));
+  return `<div class="stack auth-fields"><div class="field"><label for="${modeName}">${label} 认证方式</label><select name="${modeName}" id="${modeName}">${Object.entries(connectionAuthModes).map(([value,text])=>`<option value="${value}" ${mode===value?'selected':''}>${text}</option>`).join('')}</select><small id="${modeName}-hint"></small></div>${field(`${label} 用户名`,userName,c[userName])}${field(`${label} 密码`,passwordName,'','password',hasPassword?'已保存密码。留空保留；选择无密码的认证方式并保存可清除。':'','new-password')}</div>`;
+}
+
 function renderConnectionForm() {
   const c=state.editing||{};
   shell([sections.connections,c.id?'编辑连接':'新建连接'],`<button class="ghost" id="back-connections">返回连接管理</button>`,
-    `<div class="card form-page"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-extra"></div><div class="grid">${field('Redis ACL 用户名','username',c.username)}${field('Redis 密码','password','','password')}</div><div id="connection-checks"></div><div class="actions form-actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form></div>`);
-  const renderExtra=()=>{const kind=byId('kind').value;byId('connection-extra').innerHTML=kind==='sentinel'?`<div class="grid">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${field('Sentinel ACL 用户名','sentinelUsername',c.sentinelUsername)}${field('Sentinel 密码','sentinelPassword','','password')}</div>`:`<div class="grid">${field(kind==='cluster'?'Cluster 入口节点 host:port':'Redis 地址 host:port','address',c.address)}</div>`;};
-  renderExtra();on('kind','change',renderExtra);
+    `<div class="card form-page"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-address">${field('Redis 地址 host:port','address',c.address)}</div><div id="connection-sentinel" class="stack">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${connectionAuthFields(c,true)}</div>${connectionAuthFields(c)}<div id="connection-checks"></div><div class="actions form-actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form></div>`);
+  const updateFields=()=>{
+    const kind=byId('kind').value, sentinel=kind==='sentinel';
+    byId('connection-address').hidden=sentinel;
+    byId('address').disabled=sentinel;
+    document.querySelector('label[for="address"]').textContent=kind==='cluster'?'Cluster 入口节点 host:port':'Redis 地址 host:port';
+    byId('connection-sentinel').hidden=!sentinel;
+    for(const name of ['sentinelAddress','sentinelMaster','sentinelAuthMode'])byId(name).disabled=!sentinel;
+    for(const [modeName,userName,passwordName,active] of [['authMode','username','password',true],['sentinelAuthMode','sentinelUsername','sentinelPassword',sentinel]]){
+      const mode=byId(modeName).value, useUser=mode==='username'||mode==='username_password', usePassword=mode==='password'||mode==='username_password';
+      for(const [name,visible] of [[userName,useUser],[passwordName,usePassword]]){
+        byId(name).closest('.field').hidden=!visible;
+        byId(name).disabled=!active||!visible;
+      }
+      const hint=byId(modeName+'-hint');
+      hint.textContent=mode==='username'?'适用于服务端已启用免密码（nopass）的用户。':mode==='password'?'使用默认用户进行密码认证。':'';
+      hint.hidden=!hint.textContent;
+      syncSelect(byId(modeName));
+    }
+    byId('connection-checks').innerHTML='';
+  };
+  updateFields();
+  for(const name of ['kind','authMode','sentinelAuthMode'])on(name,'change',updateFields);
   on('back-connections','click',()=>{state.page='connections';render();});
   const input=()=>({...formData('connection-form'),id:c.id});
   on('test-connection','click',async()=>{try{const checks=await send('/connections/test',input());byId('connection-checks').innerHTML=checksHTML(checks);}catch(error){notice(error.message,true);}});
-  on('connection-form','submit',async event=>{event.preventDefault();const draft=input();state.editing={...c,...draft,password:'',sentinelPassword:''};try{await send(c.id?'/connections/'+c.id:'/connections',draft,c.id?'PUT':'POST');await loadLists();state.page='connections';notice('连接已保存');}catch(error){notice(error.message,true);}});
+  on('connection-form','submit',async event=>{event.preventDefault();try{await send(c.id?'/connections/'+c.id:'/connections',input(),c.id?'PUT':'POST');await loadLists();state.page='connections';notice('连接已保存');}catch(error){notice(error.message,true);}});
 }
 
 function checksHTML(checks) { return `<div style="margin-top:20px">${checks.map(c=>`<div class="check ${c.ok?'ok':'bad'}"><strong>${c.ok?'✓':'!'} ${esc(c.name)}</strong><div class="muted">${esc(c.message)}</div></div>`).join('')}</div>`; }

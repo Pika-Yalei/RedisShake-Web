@@ -61,7 +61,7 @@ func NewRedisClient(ctx context.Context, address string, username string, passwo
 	r.protoWriter = proto.NewWriter(r.writer)
 
 	// auth
-	if password != "" {
+	if username != "" || password != "" {
 		var reply string
 		if username != "" {
 			reply = r.DoWithStringReply("auth", username, password)
