@@ -15,6 +15,8 @@ This project targets desktop browsers only. Do not design, implement, or validat
 
 ## Testing workflow
 
+- Keep all test source files, helpers, fixtures, and test entry points under `tests/`. Mirror the production package paths for Go tests, such as `tests/cmd/redisshakeweb/auth_test.go`. Put package-local helpers in `*_test.go` files so the runner discovers them automatically.
+- Run Go checks through the centralized overlay runner from the repository root: `go run ./tests` for all tests, `go run ./tests test ./cmd/redisshakeweb -run TestFrontendAssetsAreEmbedded` for scoped tests, and `go run ./tests vet ./...` for static analysis including tests. Use this instead of bare `go test`; see [tests/README.md](tests/README.md). Keep production package paths in command arguments.
 - Run checks appropriate to the change. Documentation-only changes need a diff and link review, not a browser session or Go build. For code changes, check modified JavaScript with `node --check`, run the relevant Go tests, and build the Web binary when application code or embedded assets change. Broaden testing only when the change or a failure warrants it.
 - Use Playwright in headless mode by default: `chromium.launch({ headless: true })`. Do not open a visible Chrome or Chrome for Testing window unless the user explicitly requests a visible demonstration or debugging session. If headless testing is unavailable, report the limitation instead of silently switching to a visible browser.
 - Use isolated browser contexts without the user's browser profile or existing login session. Reuse the browser within a testing session; close test contexts and the browser in cleanup, including after failures. Do not repeatedly launch a browser for individual checks.

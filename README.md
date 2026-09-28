@@ -28,6 +28,18 @@ cd dist/redis-shake-web-$(go env GOOS)-$(go env GOARCH)
 
 支持交叉构建 `darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`，例如 `bash scripts/build.sh linux amd64`。执行 `bash scripts/package.sh` 可在 `dist/release/` 生成四个可解压运行的 `.tar.gz` 包和 `SHA256SUMS`。RedisShake 内核代码已直接合入项目的同一个 Go 模块：[单任务入口](internal/kernel/run.go)与[内部包](internal)基于官方 v4.6.2，包含本项目的增量过滤、进程存活与安全处理修改；[MIT 许可证](REDISSHAKE-LICENSE.txt)保留在仓库根目录。发布包只有一个 `redis-shake-web` 可执行文件：Web 将请求交给常驻执行器，执行器每启动一个任务，就以内部 `task` 模式创建一个独立进程。Web 重启不影响已运行的任务进程。构建产物还包含文档、版本记录及 RedisShake 许可证；Docker 镜像也从仓库内源码构建。
 
+## 自动化测试
+
+测试源码和统一入口集中在 [tests](tests/README.md) 目录。在仓库根目录运行：
+
+```bash
+go run ./tests
+go run ./tests test -race ./...
+go run ./tests vet ./...
+```
+
+测试入口通过 Go 构建 overlay 保留包内测试对未导出函数的访问，替代裸 `go test`；生产构建命令保持不变。
+
 ## 使用流程
 
 1. 在“连接管理”保存源端和目标端，分别测试连接。支持自建 Redis 单机、Sentinel 和 Cluster，明文连接，以及无认证、仅密码、仅账号（无密码）、账号和密码四种认证方式；Redis 与 Sentinel 分别设置。仅账号模式要求服务端 ACL 用户启用 `nopass`。编辑时密码留空保留原密码，选择无密码方式并保存可清除。暂不提供 Redis TLS。

@@ -8,7 +8,7 @@ import (
 )
 
 // BenchmarkRunFunction is a benchmark for RunFunction
-// Command is `go test -benchmem -bench="RunFunction$" -count=5 ./internal/filter`
+// Command is `go run ./tests test -benchmem -bench="RunFunction$" -count=5 ./internal/filter`
 // Output is:
 //
 // cpu: Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz
