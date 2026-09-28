@@ -2,7 +2,7 @@ import { showErrorDialog, showInfoDialog } from './dialog.js?v=error-without-tit
 import { enhanceSelects, syncSelect } from './select.js?v=stable-selects';
 
 const root = document.querySelector('#app');
-const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
+const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], connectionSearch: '', tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
@@ -132,16 +132,25 @@ function newTask(){
 }
 
 function renderConnections() {
+  shell([sections.connections],`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
+    `<div class="table-search" role="search"><label for="connection-search">搜索连接</label><input type="search" id="connection-search" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div><div id="connection-table"></div>`);
+  on('connection-search','input',event=>{state.connectionSearch=event.target.value;renderConnectionTable();});
+  on('new-connection','click',()=>{state.editing={name:defaultName('Redis Connection'),kind:'standalone'};state.page='connection';render();});
+  renderConnectionTable();
+}
+
+function renderConnectionTable() {
+  const kinds={standalone:'单机',sentinel:'哨兵',cluster:'Redis Cluster'};
+  const query=state.connectionSearch.trim().toLowerCase();
+  const connections=state.connections.filter(c=>[c.name,c.kind,kinds[c.kind],c.kind==='sentinel'?c.sentinelAddress:c.address].some(value=>String(value||'').toLowerCase().includes(query)));
   const columns=[{label:'连接名称',className:'table-name'},{label:'部署类型',className:'table-kind'},{label:'连接地址'},{label:'操作',className:'table-actions'}];
-  const rows=state.connections.map(c=>[
+  const rows=connections.map(c=>[
     esc(c.name),
-    esc({standalone:'单机',sentinel:'哨兵',cluster:'Redis Cluster'}[c.kind]||c.kind),
+    esc(kinds[c.kind]||c.kind),
     esc(c.kind==='sentinel'?c.sentinelAddress:c.address),
     `<div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div>`
   ]);
-  shell([sections.connections],`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
-    tableHTML('Redis 连接列表',columns,rows,'暂无 Redis 连接'));
-  on('new-connection','click',()=>{state.editing={name:defaultName('Redis Connection'),kind:'standalone'};state.page='connection';render();});
+  byId('connection-table').innerHTML=tableHTML('Redis 连接列表',columns,rows,query?'未找到匹配的连接':'暂无 Redis 连接');
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
 }

@@ -115,6 +115,7 @@ p { line-height: 1.55; }
 .list-item .details { min-width: 0; }
 .list-item .actions { margin: 0; }
 .list-item .muted { overflow-wrap: anywhere; }
+.table-search { width: min(100%, 28rem); margin-bottom: 16px; }
 .table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .table-scroll:focus-visible { outline: 3px solid rgba(0, 122, 255, .3); outline-offset: 2px; }
 .data-table { width: 100%; min-width: 48rem; border-collapse: collapse; table-layout: fixed; text-align: left; }
