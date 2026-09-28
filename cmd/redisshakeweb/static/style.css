@@ -79,7 +79,7 @@ small, .muted { color: var(--secondary); font-size: 13px; line-height: 1.45; }
 .nav button .icon { margin-right: 3px; }
 .nav button:hover { background: var(--hover); color: var(--ink); }
 .nav button.active { color: var(--ink); background: var(--hover); font-weight: 650; }
-.main { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; padding: 48px clamp(26px, 3vw, 48px) 76px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; background: var(--surface); }
+.main { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; padding: 0 clamp(26px, 3vw, 48px) 76px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; background: var(--surface); }
 .main:has(> .form-page) { display: flex; flex-direction: column; padding-bottom: 28px; }
 .form-page { display: flex; flex: 1; flex-direction: column; margin-bottom: 0; }
 .form-page #connection-form { flex: 1; }
@@ -168,7 +168,7 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
 @media (max-width: 900px) {
   .layout { grid-template-columns: 205px minmax(0, 1fr); }
   .brand { font-size: 16px; }
-  .main { padding: 42px 25px 70px; }
+  .main { padding: 0 25px 70px; }
   .topline { padding: 0 25px; }
   .grid3 { grid-template-columns: 1fr; gap: 14px; }
 }
@@ -181,7 +181,7 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
   .nav { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; }
   .nav button { flex-direction: column; justify-content: center; gap: 3px; min-height: 53px; padding: 5px 3px; font-size: 10px; text-align: center; }
   .nav button .icon { width: 20px; height: 20px; margin: 0; }
-  .main { padding: 24px 17px 28px; }
+  .main { padding: 0 17px 28px; }
   .main:has(> .form-page) { min-height: calc(100dvh - 175px - env(safe-area-inset-bottom)); }
   .topline { min-height: 82px; padding: 18px 17px; }
   .topline > button { flex: none; }
