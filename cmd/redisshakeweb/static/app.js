@@ -141,7 +141,7 @@ function connectionAuthFields(c, sentinel=false) {
 function renderConnectionForm() {
   const c=state.editing||{};
   shell([sections.connections,c.id?'编辑连接':'新建连接'],`<button class="ghost" id="back-connections">返回连接管理</button>`,
-    `<div class="card form-page"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-address">${field('Redis 地址 host:port','address',c.address)}</div><div id="connection-sentinel" class="stack">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${connectionAuthFields(c,true)}</div>${connectionAuthFields(c)}<div id="connection-checks"></div><div class="actions form-actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form></div>`);
+    `<div class="card form-page"><form id="connection-form" class="stack"><div class="grid">${field('连接名称','name',c.name)}<div class="field"><label for="kind">部署类型</label><select name="kind" id="kind"><option value="standalone" ${c.kind==='standalone'?'selected':''}>单机</option><option value="sentinel" ${c.kind==='sentinel'?'selected':''}>哨兵</option><option value="cluster" ${c.kind==='cluster'?'selected':''}>Redis Cluster</option></select></div></div><div id="connection-address">${field('Redis 地址 host:port','address',c.address)}</div><div id="connection-sentinel" class="stack">${field('Sentinel 地址 host:port','sentinelAddress',c.sentinelAddress)}${field('主节点名称','sentinelMaster',c.sentinelMaster)}${connectionAuthFields(c,true)}</div>${connectionAuthFields(c)}<div class="actions form-actions"><button type="button" class="secondary" id="test-connection">测试连接</button><button class="primary">保存连接</button></div></form></div>`);
   const updateFields=()=>{
     const kind=byId('kind').value, sentinel=kind==='sentinel';
     byId('connection-address').hidden=sentinel;
@@ -157,13 +157,22 @@ function renderConnectionForm() {
       }
       syncSelect(byId(modeName));
     }
-    byId('connection-checks').innerHTML='';
   };
   updateFields();
   for(const name of ['kind','authMode','sentinelAuthMode'])on(name,'change',updateFields);
   on('back-connections','click',()=>{state.page='connections';render();});
   const input=()=>({...formData('connection-form'),id:c.id});
-  on('test-connection','click',async()=>{try{const checks=await send('/connections/test',input());byId('connection-checks').innerHTML=checksHTML(checks);}catch(error){notice(error.message,true);}});
+  on('test-connection','click',async()=>{
+    try {
+      const checks=await send('/connections/test',input());
+      const failures=checks.filter(check=>!check.ok);
+      if(failures.length){
+        showErrorDialog(failures.map(check=>check.message).join('\n'));
+        return;
+      }
+      showInfoDialog(checks.map(check=>`${check.name}：${check.message}`).join('\n'));
+    } catch(error) { notice(error.message,true); }
+  });
   on('connection-form','submit',async event=>{event.preventDefault();try{await send(c.id?'/connections/'+c.id:'/connections',input(),c.id?'PUT':'POST');await loadLists();state.page='connections';notice('连接已保存');}catch(error){notice(error.message,true);}});
 }
 

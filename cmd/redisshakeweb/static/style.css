@@ -84,7 +84,6 @@ small, .muted { color: var(--secondary); font-size: .875rem; line-height: 1.45; 
 .form-page { display: flex; flex: 1; flex-direction: column; margin-bottom: 0; }
 .form-page #connection-form { flex: 1; }
 .form-page [hidden] { display: none; }
-.form-page #connection-checks:empty { display: none; }
 .form-page .form-actions { justify-content: center; margin-top: auto; padding-top: 24px; }
 .topline { display: flex; justify-content: space-between; align-items: center; gap: 20px; width: 100%; height: 100%; padding: 0 clamp(26px, 3vw, 48px); }
 h1 { margin: 0; font-size: clamp(1.375rem, 2vw, 1.6875rem); font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
