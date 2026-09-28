@@ -134,6 +134,12 @@ p { line-height: 1.55; }
 .data-table .table-name { width: 38%; }
 .data-table .table-kind { width: 8.5rem; }
 .data-table .table-actions { width: 10.5rem; text-align: right; }
+.data-table:has(.table-task-name) { min-width: 64rem; }
+.data-table .table-task-name { width: 24%; }
+.data-table .table-task-connection { width: 17%; }
+.data-table .table-task-status { width: 6.5rem; }
+.data-table .table-task-updated { width: 12rem; }
+.data-table .table-task-actions { width: 8rem; }
 .table-actions .actions { justify-content: flex-end; flex-wrap: nowrap; gap: 8px; margin: 0; }
 .table-actions .danger { margin-left: 0; }
 .data-table .table-empty { color: var(--secondary); text-align: center; }
@@ -194,6 +200,10 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
 
 @keyframes surface-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 
+@media (max-width: 1100px) {
+  .data-table .table-empty { text-align: left; }
+}
+
 @media (max-width: 900px) {
   .layout { grid-template-columns: 205px minmax(0, 1fr); }
   .brand { font-size: 1rem; }
@@ -221,7 +231,6 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
   .card { padding: 18px; border-radius: 15px; }
   .list-item { align-items: flex-start; flex-direction: column; }
   .list-item > button, .list-item .actions { align-self: flex-end; }
-  .data-table .table-empty { text-align: left; }
   .pagination-pages { margin-left: auto; }
   .steps { gap: 2px; padding: 4px; }
   .step { padding: 8px 3px; font-size: .75rem; }

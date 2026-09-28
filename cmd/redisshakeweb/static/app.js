@@ -2,7 +2,7 @@ import { showErrorDialog, showInfoDialog } from './dialog.js?v=error-without-tit
 import { enhanceSelects, syncSelect } from './select.js?v=stable-selects';
 
 const root = document.querySelector('#app');
-const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], connectionSearch: '', connectionPage: 1, connectionPageSize: 10, tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
+const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], connectionSearch: '', connectionPage: 1, connectionPageSize: 10, tasks: [], taskSearch: '', taskPage: 1, taskPageSize: 10, editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
@@ -28,6 +28,26 @@ function tableHTML(label, columns, rows, emptyMessage) {
   const columnClass=index=>columns[index].className||'';
   const body=rows.length?rows.map(cells=>`<tr>${cells.map((cell,index)=>index===0?`<th scope="row" class="${esc(columnClass(index))}">${cell}</th>`:`<td class="${esc(columnClass(index))}">${cell}</td>`).join('')}</tr>`).join(''):`<tr><td class="table-empty" colspan="${columns.length}">${esc(emptyMessage)}</td></tr>`;
   return `<div class="table-scroll" role="region" aria-label="${esc(label)}" tabindex="0"><table class="data-table" aria-label="${esc(label)}"><colgroup>${columns.map((_,index)=>`<col class="${esc(columnClass(index))}">`).join('')}</colgroup><thead><tr>${columns.map((column,index)=>`<th scope="col" class="${esc(columnClass(index))}">${esc(column.label)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function paginate(items, prefix) {
+  const pageSize=state[prefix+'PageSize'];
+  const pageCount=Math.max(1,Math.ceil(items.length/pageSize));
+  const page=state[prefix+'Page']=Math.max(1,Math.min(state[prefix+'Page'],pageCount));
+  return {items:items.slice((page-1)*pageSize,page*pageSize),total:items.length,page,pageSize,pageCount};
+}
+function paginationHTML(prefix, {total,page,pageSize,pageCount}) {
+  return `<div class="table-pagination"><span class="muted" role="status">共 ${total} 条</span><select id="${prefix}-page-size" aria-label="每页条数">${[10,20,50].map(size=>`<option value="${size}" ${size===pageSize?'selected':''}>${size} 条/页</option>`).join('')}</select><div class="pagination-pages"><button class="ghost" id="${prefix}-previous-page" ${page===1?'disabled':''}>上一页</button><span class="muted" aria-live="polite">第 ${page} / ${pageCount} 页</span><button class="ghost" id="${prefix}-next-page" ${page===pageCount?'disabled':''}>下一页</button></div></div>`;
+}
+function bindPagination(prefix, renderTable, focusId) {
+  on(prefix+'-page-size','change',event=>{state[prefix+'PageSize']=Number(event.target.value);state[prefix+'Page']=1;renderTable(prefix+'-page-size-trigger');});
+  on(prefix+'-previous-page','click',()=>{state[prefix+'Page']--;renderTable(prefix+'-previous-page');});
+  on(prefix+'-next-page','click',()=>{state[prefix+'Page']++;renderTable(prefix+'-next-page');});
+  const panel=byId(prefix+'-table');
+  enhanceSelects(panel);
+  if(focusId){
+    const control=byId(focusId);
+    (control&&!control.disabled?control:panel.querySelector('.table-scroll')).focus({preventScroll:true});
+  }
 }
 const notice = (text, error=false) => {
   if (error) {
@@ -115,11 +135,36 @@ function renderLogin() {
 }
 
 function renderTasks() {
-  shell([sections.tasks],`<button class="primary" id="new-task">${icon('plus')} 新建任务</button>`,
-    state.tasks.length ? state.tasks.map(t=>`<div class="list-item"><div class="details"><strong>${esc(t.name)} <span data-run-status="${esc(t.id)}" class="badge">加载中</span></strong><span class="muted">${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}　·　${esc(t.updatedAt||'未运行')}</span></div><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`).join('') : `<div class="empty"><strong>暂无同步任务</strong></div>`);
+  shell([sections.tasks],'',
+    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="task-search" aria-label="搜索任务" placeholder="任务名称、源连接或目标连接" value="${esc(state.taskSearch)}" autocomplete="off" aria-controls="task-table"></div><button class="primary" id="new-task">${icon('plus')} 新建任务</button></div><div id="task-table" class="table-panel"></div>`);
+  on('task-search','input',event=>{state.taskSearch=event.target.value;state.taskPage=1;renderTaskTable();});
   on('new-task','click',newTask);
-  document.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>openTask(button.dataset.task)));
-  state.tasks.forEach(async t=>{try{const runs=await api('/tasks/'+t.id+'/runs');const label=document.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);if(label){const status=runs[0]?.status||'未运行';label.textContent={RUNNING:'运行中',FAILED:'失败',STOPPED:'已停止',STARTING:'启动中',STOPPING:'停止中'}[status]||status;label.className='badge '+status;}}catch{}});
+  renderTaskTable();
+}
+function renderTaskTable(focusId) {
+  const query=state.taskSearch.trim().toLowerCase();
+  const tasks=state.tasks.filter(t=>[t.name,connectionName(t.sourceId),connectionName(t.targetId)].some(value=>String(value||'').toLowerCase().includes(query)));
+  const pagination=paginate(tasks,'task');
+  const columns=[{label:'任务名称',className:'table-task-name'},{label:'源连接',className:'table-task-connection'},{label:'目标连接',className:'table-task-connection'},{label:'运行状态',className:'table-task-status'},{label:'更新时间',className:'table-task-updated'},{label:'操作',className:'table-actions table-task-actions'}];
+  const rows=pagination.items.map(t=>[
+    esc(t.name),esc(connectionName(t.sourceId)),esc(connectionName(t.targetId)),
+    `<span data-run-status="${esc(t.id)}">${badge('加载中')}</span>`,
+    esc(t.updatedAt?new Date(t.updatedAt).toLocaleString('zh-CN',{hour12:false}):'—'),
+    `<div class="actions"><button class="secondary" data-task="${esc(t.id)}">查看详情</button></div>`
+  ]);
+  const panel=byId('task-table');
+  panel.innerHTML=tableHTML('同步任务列表',columns,rows,query?'未找到匹配的任务':'暂无同步任务')+paginationHTML('task',pagination);
+  panel.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>openTask(button.dataset.task)));
+  bindPagination('task',renderTaskTable,focusId);
+  pagination.items.forEach(async t=>{
+    const label=panel.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);
+    try{
+      const runs=await api('/tasks/'+t.id+'/runs');
+      if(label.isConnected)label.innerHTML=badge(runs[0]?.status);
+    }catch(error){
+      if(label.isConnected){label.innerHTML=badge('读取失败');label.title=error.message;}
+    }
+  });
 }
 function connectionName(id) { return state.connections.find(x=>x.id===id)?.name || '未选择连接'; }
 function defaultName(prefix){
@@ -143,28 +188,18 @@ function renderConnectionTable(focusId) {
   const kinds={standalone:'单机',sentinel:'哨兵',cluster:'Redis Cluster'};
   const query=state.connectionSearch.trim().toLowerCase();
   const connections=state.connections.filter(c=>[c.name,c.kind,kinds[c.kind],c.kind==='sentinel'?c.sentinelAddress:c.address].some(value=>String(value||'').toLowerCase().includes(query)));
-  const pageCount=Math.max(1,Math.ceil(connections.length/state.connectionPageSize));
-  state.connectionPage=Math.max(1,Math.min(state.connectionPage,pageCount));
-  const start=(state.connectionPage-1)*state.connectionPageSize;
+  const pagination=paginate(connections,'connection');
   const columns=[{label:'连接名称',className:'table-name'},{label:'部署类型',className:'table-kind'},{label:'连接地址'},{label:'操作',className:'table-actions'}];
-  const rows=connections.slice(start,start+state.connectionPageSize).map(c=>[
+  const rows=pagination.items.map(c=>[
     esc(c.name),
     esc(kinds[c.kind]||c.kind),
     esc(c.kind==='sentinel'?c.sentinelAddress:c.address),
     `<div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div>`
   ]);
-  byId('connection-table').innerHTML=tableHTML('Redis 连接列表',columns,rows,query?'未找到匹配的连接':'暂无 Redis 连接')+
-    `<div class="table-pagination"><span class="muted" role="status">共 ${connections.length} 条</span><select id="connection-page-size" aria-label="每页条数">${[10,20,50].map(size=>`<option value="${size}" ${size===state.connectionPageSize?'selected':''}>${size} 条/页</option>`).join('')}</select><div class="pagination-pages"><button class="ghost" id="connection-previous-page" ${state.connectionPage===1?'disabled':''}>上一页</button><span class="muted" aria-live="polite">第 ${state.connectionPage} / ${pageCount} 页</span><button class="ghost" id="connection-next-page" ${state.connectionPage===pageCount?'disabled':''}>下一页</button></div></div>`;
-  on('connection-page-size','change',event=>{state.connectionPageSize=Number(event.target.value);state.connectionPage=1;renderConnectionTable('connection-page-size-trigger');});
-  on('connection-previous-page','click',()=>{state.connectionPage--;renderConnectionTable('connection-previous-page');});
-  on('connection-next-page','click',()=>{state.connectionPage++;renderConnectionTable('connection-next-page');});
+  byId('connection-table').innerHTML=tableHTML('Redis 连接列表',columns,rows,query?'未找到匹配的连接':'暂无 Redis 连接')+paginationHTML('connection',pagination);
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
-  enhanceSelects(byId('connection-table'));
-  if(focusId){
-    const control=byId(focusId);
-    (control&&!control.disabled?control:byId('connection-table').querySelector('.table-scroll')).focus({preventScroll:true});
-  }
+  bindPagination('connection',renderConnectionTable,focusId);
 }
 
 const connectionAuthModes = Object.freeze({none:'无认证',password:'仅密码',username:'仅账号（无密码）',username_password:'账号和密码'});
