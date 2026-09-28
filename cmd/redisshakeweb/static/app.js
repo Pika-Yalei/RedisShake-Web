@@ -1,4 +1,4 @@
-import { showErrorDialog, showInfoDialog } from './dialog.js?v=error-without-title';
+import { dismissToast, showErrorToast, showSuccessToast } from './toast.js?v=lightweight-feedback';
 import { enhanceSelects, syncSelect } from './select.js?v=stable-selects';
 
 const root = document.querySelector('#app');
@@ -51,11 +51,11 @@ function bindPagination(prefix, renderTable, focusId) {
 }
 const notice = (text, error=false) => {
   if (error) {
-    showErrorDialog(text);
+    showErrorToast(text);
     return;
   }
   render();
-  showInfoDialog(text);
+  showSuccessToast(text);
 };
 const byId = id => document.getElementById(id);
 const on = (id, event, callback) => { const element=byId(id); if(element) element.addEventListener(event, callback); };
@@ -198,7 +198,7 @@ function renderConnectionTable(focusId) {
   ]);
   byId('connection-table').innerHTML=tableHTML('Redis 连接列表',columns,rows,query?'未找到匹配的连接':'暂无 Redis 连接')+paginationHTML('connection',pagination);
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
-  document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
+  document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();dismissToast();render();}catch(error){notice(error.message,true);}}));
   bindPagination('connection',renderConnectionTable,focusId);
 }
 
@@ -242,10 +242,10 @@ function renderConnectionForm() {
       const checks=await send('/connections/test',input());
       const failures=checks.filter(check=>!check.ok);
       if(failures.length){
-        showErrorDialog(failures.map(check=>check.message).join('\n'));
+        showErrorToast(failures.map(check=>check.message).join('\n'));
         return;
       }
-      showInfoDialog(checks.map(check=>`${check.name}：${check.message}`).join('\n'));
+      showSuccessToast(checks.map(check=>`${check.name}：${check.message}`).join('\n'));
     } catch(error) { notice(error.message,true); }
   });
   on('connection-form','submit',async event=>{event.preventDefault();try{await send(c.id?'/connections/'+c.id:'/connections',input(),c.id?'PUT':'POST');await loadLists();state.page='connections';notice('连接已保存');}catch(error){notice(error.message,true);}});
@@ -285,7 +285,7 @@ function renderTask(){
   on('back-tasks','click',async()=>{await loadLists();state.page='tasks';render();});
   on('run-edit','click',()=>{state.editing=structuredClone(t);state.step=0;state.page='wizard';render();});
   on('run-copy','click',async()=>{try{await send('/tasks/'+t.id+'/copy',{});await loadLists();notice('任务已复制');}catch(error){notice(error.message,true);}});
-  on('run-delete','click',async()=>{if(!confirm('删除任务记录？不会删除 Redis 数据。'))return;try{await api('/tasks/'+t.id,{method:'DELETE'});await loadLists();state.page='tasks';notice('任务已删除');}catch(error){notice(error.message,true);}});
+  on('run-delete','click',async()=>{if(!confirm('删除任务记录？不会删除 Redis 数据。'))return;try{await api('/tasks/'+t.id,{method:'DELETE'});await loadLists();state.page='tasks';dismissToast();render();}catch(error){notice(error.message,true);}});
   on('run-start','click',async()=>{if(state.selectedRun&&!confirm('重新全量运行会从源端重新读取数据，不会断点续传。继续？'))return;try{const run=await send('/tasks/'+t.id+'/start',{});state.selectedRun=run.id;notice('同步已启动');}catch(error){notice(error.message,true);}});
   on('run-stop','click',async()=>{if(!state.selectedRun)return;try{await send('/runs/'+state.selectedRun+'/stop',{});notice('正在停止');}catch(error){notice(error.message,true);}});
   on('refresh-logs','click',loadRunDetails);
