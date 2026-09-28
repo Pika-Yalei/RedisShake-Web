@@ -117,17 +117,19 @@ function renderTasks() {
   state.tasks.forEach(async t=>{try{const runs=await api('/tasks/'+t.id+'/runs');const label=document.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);if(label){const status=runs[0]?.status||'未运行';label.textContent={RUNNING:'运行中',FAILED:'失败',STOPPED:'已停止',STARTING:'启动中',STOPPING:'停止中'}[status]||status;label.className='badge '+status;}}catch{}});
 }
 function connectionName(id) { return state.connections.find(x=>x.id===id)?.name || '未选择连接'; }
-function newTask(){
+function defaultName(prefix){
   const now=new Date();
-  const name=`Redis Sync ${now.getFullYear()}${[now.getMonth()+1,now.getDate(),now.getHours(),now.getMinutes()].map(value=>String(value).padStart(2,'0')).join('')}`;
-  state.editing={name,sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};
+  return `${prefix} ${now.getFullYear()}${[now.getMonth()+1,now.getDate(),now.getHours(),now.getMinutes()].map(value=>String(value).padStart(2,'0')).join('')}`;
+}
+function newTask(){
+  state.editing={name:defaultName('Redis Sync'),sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};
   state.step=0;state.checks=[];state.page='wizard';render();
 }
 
 function renderConnections() {
   shell([sections.connections],`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
     state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>暂无 Redis 连接</strong></div>`);
-  on('new-connection','click',()=>{state.editing={kind:'standalone'};state.page='connection';render();});
+  on('new-connection','click',()=>{state.editing={name:defaultName('Redis Connection'),kind:'standalone'};state.page='connection';render();});
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
 }
