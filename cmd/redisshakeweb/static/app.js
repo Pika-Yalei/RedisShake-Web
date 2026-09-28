@@ -2,7 +2,7 @@ import { showErrorDialog, showInfoDialog } from './dialog.js?v=error-without-tit
 import { enhanceSelects, syncSelect } from './select.js?v=stable-selects';
 
 const root = document.querySelector('#app');
-const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], connectionSearch: '', tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
+const state = { page: 'tasks', session: null, adminUsername: 'admin', connections: [], connectionSearch: '', connectionPage: 1, connectionPageSize: 10, tasks: [], editing: null, task: null, step: 0, checks: [], selectedRun: null, logRun: null, refresh: null };
 
 const iconPaths = {
   tasks: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/>',
@@ -132,27 +132,39 @@ function newTask(){
 }
 
 function renderConnections() {
-  shell([sections.connections],`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
-    `<div class="table-search" role="search"><label for="connection-search">搜索连接</label><input type="search" id="connection-search" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div><div id="connection-table"></div>`);
-  on('connection-search','input',event=>{state.connectionSearch=event.target.value;renderConnectionTable();});
+  shell([sections.connections],'',
+    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="connection-search" aria-label="搜索连接" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div><button class="primary" id="new-connection">${icon('plus')} 新建连接</button></div><div id="connection-table"></div>`);
+  on('connection-search','input',event=>{state.connectionSearch=event.target.value;state.connectionPage=1;renderConnectionTable();});
   on('new-connection','click',()=>{state.editing={name:defaultName('Redis Connection'),kind:'standalone'};state.page='connection';render();});
   renderConnectionTable();
 }
 
-function renderConnectionTable() {
+function renderConnectionTable(focusId) {
   const kinds={standalone:'单机',sentinel:'哨兵',cluster:'Redis Cluster'};
   const query=state.connectionSearch.trim().toLowerCase();
   const connections=state.connections.filter(c=>[c.name,c.kind,kinds[c.kind],c.kind==='sentinel'?c.sentinelAddress:c.address].some(value=>String(value||'').toLowerCase().includes(query)));
+  const pageCount=Math.max(1,Math.ceil(connections.length/state.connectionPageSize));
+  state.connectionPage=Math.max(1,Math.min(state.connectionPage,pageCount));
+  const start=(state.connectionPage-1)*state.connectionPageSize;
   const columns=[{label:'连接名称',className:'table-name'},{label:'部署类型',className:'table-kind'},{label:'连接地址'},{label:'操作',className:'table-actions'}];
-  const rows=connections.map(c=>[
+  const rows=connections.slice(start,start+state.connectionPageSize).map(c=>[
     esc(c.name),
     esc(kinds[c.kind]||c.kind),
     esc(c.kind==='sentinel'?c.sentinelAddress:c.address),
     `<div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div>`
   ]);
-  byId('connection-table').innerHTML=tableHTML('Redis 连接列表',columns,rows,query?'未找到匹配的连接':'暂无 Redis 连接');
+  byId('connection-table').innerHTML=tableHTML('Redis 连接列表',columns,rows,query?'未找到匹配的连接':'暂无 Redis 连接')+
+    `<div class="table-pagination"><span class="muted" role="status">共 ${connections.length} 条</span><select id="connection-page-size" aria-label="每页条数">${[10,20,50].map(size=>`<option value="${size}" ${size===state.connectionPageSize?'selected':''}>${size} 条/页</option>`).join('')}</select><div class="pagination-pages"><button class="ghost" id="connection-previous-page" ${state.connectionPage===1?'disabled':''}>上一页</button><span class="muted" aria-live="polite">第 ${state.connectionPage} / ${pageCount} 页</span><button class="ghost" id="connection-next-page" ${state.connectionPage===pageCount?'disabled':''}>下一页</button></div></div>`;
+  on('connection-page-size','change',event=>{state.connectionPageSize=Number(event.target.value);state.connectionPage=1;renderConnectionTable('connection-page-size-trigger');});
+  on('connection-previous-page','click',()=>{state.connectionPage--;renderConnectionTable('connection-previous-page');});
+  on('connection-next-page','click',()=>{state.connectionPage++;renderConnectionTable('connection-next-page');});
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
+  enhanceSelects(byId('connection-table'));
+  if(focusId){
+    const control=byId(focusId);
+    (control&&!control.disabled?control:byId('connection-table').querySelector('.table-scroll')).focus({preventScroll:true});
+  }
 }
 
 const connectionAuthModes = Object.freeze({none:'无认证',password:'仅密码',username:'仅账号（无密码）',username_password:'账号和密码'});
