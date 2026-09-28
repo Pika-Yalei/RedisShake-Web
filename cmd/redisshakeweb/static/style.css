@@ -115,6 +115,20 @@ p { line-height: 1.55; }
 .list-item .details { min-width: 0; }
 .list-item .actions { margin: 0; }
 .list-item .muted { overflow-wrap: anywhere; }
+.table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.table-scroll:focus-visible { outline: 3px solid rgba(0, 122, 255, .3); outline-offset: 2px; }
+.data-table { width: 100%; min-width: 48rem; border-collapse: collapse; table-layout: fixed; text-align: left; }
+.data-table th, .data-table td { padding: 16px; border-bottom: 1px solid var(--line); vertical-align: middle; overflow-wrap: anywhere; }
+.data-table thead th { padding-block: 12px; color: var(--secondary); background: var(--bg); font-size: .875rem; font-weight: 600; }
+.data-table tbody th { font-weight: 600; }
+.data-table tbody tr:last-child > * { border-bottom: 0; }
+.data-table tbody tr:hover { background: var(--hover); }
+.data-table .table-name { width: 38%; }
+.data-table .table-kind { width: 8.5rem; }
+.data-table .table-actions { width: 10.5rem; text-align: right; }
+.table-actions .actions { justify-content: flex-end; flex-wrap: nowrap; gap: 8px; margin: 0; }
+.table-actions .danger { margin-left: 0; }
+.data-table .table-empty { height: 180px; color: var(--secondary); text-align: center; }
 .badge { display: inline-flex; align-items: center; min-height: 23px; padding: 3px 8px; border-radius: 999px; color: var(--secondary); background: var(--hover); font-size: .8125rem; font-weight: 650; line-height: 1; white-space: nowrap; }
 .badge.RUNNING, .badge.INCREMENTAL { color: var(--success); background: rgba(36, 138, 80, .1); }
 .badge.FAILED { color: var(--danger); background: rgba(215, 0, 21, .09); }
@@ -190,6 +204,7 @@ pre.log { min-height: 170px; max-height: 440px; margin: 0; padding: 17px; overfl
   .card { padding: 18px; border-radius: 15px; }
   .list-item { align-items: flex-start; flex-direction: column; }
   .list-item > button, .list-item .actions { align-self: flex-end; }
+  .data-table .table-empty { text-align: left; }
   .steps { gap: 2px; padding: 4px; }
   .step { padding: 8px 3px; font-size: .75rem; }
   .row { align-items: flex-start; flex-direction: column; }

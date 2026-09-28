@@ -24,6 +24,11 @@ const field = (label, name, value='', type='text', hint='', autocomplete='off') 
   return `<div class="field"><label for="${esc(name)}">${esc(label)}</label>${control}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
 };
 const area = (label, name, value='', hint='') => `<div class="field"><label for="${esc(name)}">${esc(label)}</label><textarea id="${esc(name)}" name="${esc(name)}">${esc(value)}</textarea>${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
+function tableHTML(label, columns, rows, emptyMessage) {
+  const columnClass=index=>columns[index].className||'';
+  const body=rows.length?rows.map(cells=>`<tr>${cells.map((cell,index)=>index===0?`<th scope="row" class="${esc(columnClass(index))}">${cell}</th>`:`<td class="${esc(columnClass(index))}">${cell}</td>`).join('')}</tr>`).join(''):`<tr><td class="table-empty" colspan="${columns.length}">${esc(emptyMessage)}</td></tr>`;
+  return `<div class="table-scroll" role="region" aria-label="${esc(label)}" tabindex="0"><table class="data-table" aria-label="${esc(label)}"><colgroup>${columns.map((_,index)=>`<col class="${esc(columnClass(index))}">`).join('')}</colgroup><thead><tr>${columns.map((column,index)=>`<th scope="col" class="${esc(columnClass(index))}">${esc(column.label)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
 const notice = (text, error=false) => {
   if (error) {
     showErrorDialog(text);
@@ -127,8 +132,15 @@ function newTask(){
 }
 
 function renderConnections() {
+  const columns=[{label:'连接名称',className:'table-name'},{label:'部署类型',className:'table-kind'},{label:'连接地址'},{label:'操作',className:'table-actions'}];
+  const rows=state.connections.map(c=>[
+    esc(c.name),
+    esc({standalone:'单机',sentinel:'哨兵',cluster:'Redis Cluster'}[c.kind]||c.kind),
+    esc(c.kind==='sentinel'?c.sentinelAddress:c.address),
+    `<div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div>`
+  ]);
   shell([sections.connections],`<button class="primary" id="new-connection">${icon('plus')} 新建连接</button>`,
-    state.connections.length ? state.connections.map(c=>`<div class="list-item"><div class="details"><strong>${esc(c.name)}</strong><span class="muted">${esc({standalone:'单机',sentinel:'哨兵',cluster:'Cluster'}[c.kind])} · ${esc(c.kind==='sentinel'?c.sentinelAddress:c.address)}</span></div><div class="actions"><button class="secondary" data-edit-connection="${esc(c.id)}">编辑</button><button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div></div>`).join('') : `<div class="empty"><strong>暂无 Redis 连接</strong></div>`);
+    tableHTML('Redis 连接列表',columns,rows,'暂无 Redis 连接'));
   on('new-connection','click',()=>{state.editing={name:defaultName('Redis Connection'),kind:'standalone'};state.page='connection';render();});
   document.querySelectorAll('[data-edit-connection]').forEach(b=>b.addEventListener('click',()=>{state.editing={...state.connections.find(x=>x.id===b.dataset.editConnection)};state.page='connection';render();}));
   document.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('删除这个连接？已被任务使用的连接无法删除。'))return;try{await api('/connections/'+b.dataset.deleteConnection,{method:'DELETE'});await loadLists();notice('连接已删除');}catch(error){notice(error.message,true);}}));
