@@ -8,9 +8,9 @@ output_dir="${3:-$repo_dir/dist/redis-shake-web-${target_os}-${target_arch}}"
 source_sha256="c6c7de3a76b7bf4f18e494ffb40f1d09287622c4574d4da41fc1244a2dcc0b3f"
 mkdir -p "$output_dir"
 ( cd "$repo_dir" && CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" go build -trimpath -o "$output_dir/redis-shake-web" ./cmd/redisshakeweb )
-rm -f "$output_dir/redis-shake"
+rm -f "$output_dir/redis-shake" "$output_dir/REDISSHAKE-LICENSE.txt"
 cp "$repo_dir/README.md" "$output_dir/README.md"
-cp "$repo_dir/REDISSHAKE-LICENSE.txt" "$output_dir/REDISSHAKE-LICENSE.txt"
+cp "$repo_dir/LICENSE.txt" "$output_dir/LICENSE.txt"
 cp -R "$repo_dir/docs" "$output_dir/docs"
 rm -f "$output_dir/patches/redis-shake-v4.6.2.patch"
 rmdir "$output_dir/patches" 2>/dev/null || true

@@ -26,7 +26,7 @@ cd dist/redis-shake-web-$(go env GOOS)-$(go env GOARCH)
 
 启动时在终端显示 Web 地址。前端资源已内嵌到 `redis-shake-web` 可执行文件，直接访问该地址即可，无需单独部署前端服务。`serve` 会启动常驻执行器，然后运行 Web 服务；关闭 Web 进程不会停止已有同步任务。重新执行 `./redis-shake-web serve` 即可接回执行器。要有意停止执行器及任务，先在 Web 停止任务，再运行 `./redis-shake-web shutdown`。默认数据目录为 `~/.redis-shake-web`，可给命令传入 `--data-dir`；若单独设置 `--socket-dir`，后续管理命令也要使用同一参数。
 
-支持交叉构建 `darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`，例如 `bash scripts/build.sh linux amd64`。执行 `bash scripts/package.sh` 可在 `dist/release/` 生成四个可解压运行的 `.tar.gz` 包和 `SHA256SUMS`。RedisShake 内核代码已直接合入项目的同一个 Go 模块：[单任务入口](internal/kernel/run.go)与[内部包](internal)基于官方 v4.6.2，包含本项目的增量过滤、进程存活与安全处理修改；[MIT 许可证](REDISSHAKE-LICENSE.txt)保留在仓库根目录。发布包只有一个 `redis-shake-web` 可执行文件：Web 将请求交给常驻执行器，执行器每启动一个任务，就以内部 `task` 模式创建一个独立进程。Web 重启不影响已运行的任务进程。构建产物还包含文档、版本记录及 RedisShake 许可证；Docker 镜像也从仓库内源码构建。
+支持交叉构建 `darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`，例如 `bash scripts/build.sh linux amd64`。执行 `bash scripts/package.sh` 可在 `dist/release/` 生成四个可解压运行的 `.tar.gz` 包和 `SHA256SUMS`。RedisShake 内核代码已直接合入项目的同一个 Go 模块：[单任务入口](internal/kernel/run.go)与[内部包](internal)基于官方 v4.6.2，包含本项目的增量过滤、进程存活与安全处理修改；[MIT 许可证](LICENSE.txt)保留在仓库根目录。发布包只有一个 `redis-shake-web` 可执行文件：Web 将请求交给常驻执行器，执行器每启动一个任务，就以内部 `task` 模式创建一个独立进程。Web 重启不影响已运行的任务进程。构建产物还包含文档、版本记录及 RedisShake 许可证；Docker 镜像也从仓库内源码构建。
 
 ## 自动化测试
 
