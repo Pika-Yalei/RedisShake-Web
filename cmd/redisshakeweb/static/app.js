@@ -119,7 +119,7 @@ function renderTasks() {
 function connectionName(id) { return state.connections.find(x=>x.id===id)?.name || '未选择连接'; }
 function newTask(){
   const now=new Date();
-  const name=`${now.getFullYear()}${[now.getMonth()+1,now.getDate(),now.getHours(),now.getMinutes()].map(value=>String(value).padStart(2,'0')).join('')}`;
+  const name=`Redis Sync ${now.getFullYear()}${[now.getMonth()+1,now.getDate(),now.getHours(),now.getMinutes()].map(value=>String(value).padStart(2,'0')).join('')}`;
   state.editing={name,sourceId:'',targetId:'',dbMap:{'0':0},rules:{},targetPolicy:'require_empty'};
   state.step=0;state.checks=[];state.page='wizard';render();
 }
