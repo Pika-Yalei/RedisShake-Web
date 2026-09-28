@@ -135,7 +135,7 @@ function connectionAuthFields(c, sentinel=false) {
   const label=sentinel?'Sentinel':'Redis';
   const hasPassword=sentinel?c.hasSentinelPassword:c.hasPassword;
   const mode=c[modeName]||(c[userName]?(hasPassword?'username_password':'username'):(hasPassword?'password':'none'));
-  return `<div class="stack auth-fields"><div class="field"><label for="${modeName}">${label} 认证方式</label><select name="${modeName}" id="${modeName}">${Object.entries(connectionAuthModes).map(([value,text])=>`<option value="${value}" ${mode===value?'selected':''}>${text}</option>`).join('')}</select><small id="${modeName}-hint"></small></div>${field(`${label} 用户名`,userName,c[userName])}${field(`${label} 密码`,passwordName,'','password',hasPassword?'已保存密码。留空保留；选择无密码的认证方式并保存可清除。':'','new-password')}</div>`;
+  return `<div class="stack auth-fields"><div class="field"><label for="${modeName}">${label} 认证方式</label><select name="${modeName}" id="${modeName}">${Object.entries(connectionAuthModes).map(([value,text])=>`<option value="${value}" ${mode===value?'selected':''}>${text}</option>`).join('')}</select></div>${field(`${label} 用户名`,userName,c[userName])}${field(`${label} 密码`,passwordName,'','password',hasPassword?'已保存密码。留空保留；选择无密码的认证方式并保存可清除。':'','new-password')}</div>`;
 }
 
 function renderConnectionForm() {
@@ -155,9 +155,6 @@ function renderConnectionForm() {
         byId(name).closest('.field').hidden=!visible;
         byId(name).disabled=!active||!visible;
       }
-      const hint=byId(modeName+'-hint');
-      hint.textContent=mode==='username'?'适用于服务端已启用免密码（nopass）的用户。':mode==='password'?'使用默认用户进行密码认证。':'';
-      hint.hidden=!hint.textContent;
       syncSelect(byId(modeName));
     }
     byId('connection-checks').innerHTML='';
