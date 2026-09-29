@@ -129,7 +129,6 @@ func openStore(dir string) (*store, error) {
 		"CREATE INDEX IF NOT EXISTS idx_runs_task ON runs(task_id, started_at)",
 		progress.Schema,
 		"CREATE UNIQUE INDEX IF NOT EXISTS one_active_run ON runs(task_id) WHERE status IN ('STARTING','RUNNING','STOPPING')",
-		"CREATE TABLE IF NOT EXISTS clear_requests (digest TEXT PRIMARY KEY, task_id TEXT NOT NULL, target_digest TEXT NOT NULL, expires_at INTEGER NOT NULL, status TEXT NOT NULL, result TEXT NOT NULL DEFAULT '')",
 	} {
 		if _, err := db.Exec(statement); err != nil {
 			_ = db.Close()

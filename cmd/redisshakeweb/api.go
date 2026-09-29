@@ -31,15 +31,13 @@ func (a *app) routes() http.Handler {
 	mux.HandleFunc("DELETE /api/connections/{id}", a.requireAuth(a.deleteConnection))
 	mux.HandleFunc("GET /api/tasks", a.requireAuth(a.listTasks))
 	mux.HandleFunc("POST /api/tasks", a.requireAuth(a.createTask))
+	mux.HandleFunc("POST /api/tasks/preflight", a.requireAuth(a.preflightTaskDraft))
 	mux.HandleFunc("GET /api/tasks/{id}", a.requireAuth(a.getTask))
-	mux.HandleFunc("PUT /api/tasks/{id}", a.requireAuth(a.updateTask))
 	mux.HandleFunc("DELETE /api/tasks/{id}", a.requireAuth(a.deleteTask))
 	mux.HandleFunc("POST /api/tasks/{id}/copy", a.requireAuth(a.copyTask))
 	mux.HandleFunc("POST /api/tasks/{id}/preflight", a.requireAuth(a.preflightTask))
 	mux.HandleFunc("POST /api/tasks/{id}/start", a.requireAuth(a.startTask))
 	mux.HandleFunc("GET /api/tasks/{id}/runs", a.requireAuth(a.listRuns))
-	mux.HandleFunc("POST /api/tasks/{id}/clear-preview", a.requireAuth(a.clearPreview))
-	mux.HandleFunc("POST /api/tasks/{id}/clear-confirm", a.requireAuth(a.clearConfirm))
 	mux.HandleFunc("POST /api/runs/{id}/stop", a.requireAuth(a.stopTaskRun))
 	mux.HandleFunc("GET /api/runs/{id}/logs", a.requireAuth(a.logs))
 	return mux
@@ -197,33 +195,6 @@ func (a *app) getTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, t)
 }
 
-func (a *app) updateTask(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if _, err := a.store.task(id); err != nil {
-		writeError(w, 404, "任务不存在")
-		return
-	}
-	active, _ := a.store.activeRun(id)
-	if active {
-		writeError(w, 409, "运行中的任务不可编辑")
-		return
-	}
-	var t Task
-	if !readJSON(w, r, &t) {
-		return
-	}
-	t.ID = id
-	if strings.TrimSpace(t.Name) == "" {
-		writeError(w, 400, "任务名称不能为空")
-		return
-	}
-	if err := a.store.saveTask(t); err != nil {
-		writeError(w, 500, "保存任务失败")
-		return
-	}
-	writeJSON(w, 200, t)
-}
-
 func (a *app) deleteTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	active, _ := a.store.activeRun(id)
@@ -263,6 +234,10 @@ func (a *app) taskConnections(id string) (Task, Connection, Connection, error) {
 	if err != nil {
 		return Task{}, Connection{}, Connection{}, err
 	}
+	return a.connectionsForTask(t)
+}
+
+func (a *app) connectionsForTask(t Task) (Task, Connection, Connection, error) {
 	source, err := a.store.connection(t.SourceID)
 	if err != nil {
 		return Task{}, Connection{}, Connection{}, errors.New("源连接不存在")
@@ -272,6 +247,21 @@ func (a *app) taskConnections(id string) (Task, Connection, Connection, error) {
 		return Task{}, Connection{}, Connection{}, errors.New("目标连接不存在")
 	}
 	return t, source, target, nil
+}
+
+func (a *app) preflightTaskDraft(w http.ResponseWriter, r *http.Request) {
+	var t Task
+	if !readJSON(w, r, &t) {
+		return
+	}
+	_, source, target, err := a.connectionsForTask(t)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	writeJSON(w, 200, preflight(ctx, t, source, target, a.taskBinary))
 }
 
 func (a *app) preflightTask(w http.ResponseWriter, r *http.Request) {

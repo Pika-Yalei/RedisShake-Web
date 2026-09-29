@@ -343,3 +343,45 @@ func (a *app) stopRun(runID string) error {
 	}()
 	return nil
 }
+
+func (a *app) targetBusy(target Connection) (bool, error) {
+	tasks, err := a.store.tasks()
+	if err != nil {
+		return true, err
+	}
+	var targetIDs map[string]bool
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	for _, task := range tasks {
+		active, err := a.store.activeRun(task.ID)
+		if err != nil {
+			return true, err
+		}
+		if !active {
+			continue
+		}
+		other, err := a.store.connection(task.TargetID)
+		if err != nil {
+			return true, err
+		}
+		if other.ID == target.ID || (other.Kind == target.Kind && other.Address == target.Address && other.SentinelMaster == target.SentinelMaster && other.SentinelAddress == target.SentinelAddress) {
+			return true, nil
+		}
+		if targetIDs == nil {
+			targetIDs, err = redisProcessIDs(ctx, target)
+			if err != nil {
+				return true, err
+			}
+		}
+		otherIDs, err := redisProcessIDs(ctx, other)
+		if err != nil {
+			return true, err
+		}
+		for id := range targetIDs {
+			if otherIDs[id] {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}

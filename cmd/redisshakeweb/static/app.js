@@ -108,8 +108,8 @@ function resolveRoute(path) {
   if(path==='/connections')return {page:'connections',section:'connections'};
   if(path==='/tasks/new')return {page:'wizard',section:'tasks'};
   if(path==='/connections/new')return {page:'connection',section:'connections'};
-  const task=path.match(/^\/tasks\/([^/]+)(\/edit)?$/);
-  if(task)return {page:task[2]?'wizard':'task',section:'tasks',id:decodeURIComponent(task[1])};
+  const task=path.match(/^\/tasks\/([^/]+)$/);
+  if(task)return {page:'task',section:'tasks',id:decodeURIComponent(task[1])};
   const connection=path.match(/^\/connections\/([^/]+)\/edit$/);
   if(connection)return {page:'connection',section:'connections',id:decodeURIComponent(connection[1])};
   return {page:'not-found',section:path.startsWith('/connections')?'connections':'tasks'};
@@ -230,7 +230,7 @@ function renderTaskTable(focusId) {
     esc(t.name),
     `<span data-run-status="${esc(t.id)}">${badge('加载中')}</span>`,
     `<span data-run-offset="${esc(t.id)}" class="consumed-offsets">—</span>`,
-    `<div class="actions">${pageLink(taskURL(t.id),'查看详情','secondary',`data-task="${esc(t.id)}"`)}</div>`
+    `<div class="actions">${pageLink(taskURL(t.id),'详情','secondary',`data-task="${esc(t.id)}"`)}</div>`
   ]);
   const panel=byId('task-table');
   panel.innerHTML=tableHTML('同步任务列表',columns,rows,query?'未找到匹配的任务':'暂无同步任务')+paginationHTML('task',pagination);
@@ -351,7 +351,7 @@ function renderWizard() {
   if(state.step===1)content=`<form id="wizard-form" class="stack">${area('DB 映射','dbMap',mapText(t.dbMap),'每行一组，例如 0:0；不能多个源 DB 指向同一目标 DB。')}<div class="grid">${area('包含的 Key 前缀','allowPrefixes',(r.allowPrefixes||[]).join('\n'),'每行一个；留空表示全部通过。')}${area('排除的 Key 前缀','blockPrefixes',(r.blockPrefixes||[]).join('\n'))}${area('包含的 Key 正则','allowRegex',(r.allowRegex||[]).join('\n'),'每行一个 Go 正则表达式。')}${area('排除的 Key 正则','blockRegex',(r.blockRegex||[]).join('\n'))}${area('仅增量：包含命令','allowCommands',(r.allowCommands||[]).join('\n'),'每行一个命令；不影响全量导入。')}${area('仅增量：排除命令','blockCommands',(r.blockCommands||[]).join('\n'),'多 Key 部分匹配时整条命令跳过。')}</div><div class="field"><label for="targetPolicy">目标端已有数据</label><select name="targetPolicy" id="targetPolicy"><option value="require_empty" ${t.targetPolicy==='require_empty'?'selected':''}>要求目标 DB 为空（默认）</option><option value="overwrite" ${t.targetPolicy==='overwrite'?'selected':''}>覆盖同名 Key</option></select></div></form>`;
   if(state.step===2)content=`<p>预检会测试连接、版本、拓扑、规则和目标 DB 条件，不会删除或修改 Redis 数据。</p>${checksHTML(state.checks)}<button class="secondary" id="rerun-checks">重新预检</button>`;
   if(state.step===3)content=`<div class="grid3"><div><h3>任务</h3>${esc(t.name)}</div><div><h3>源 → 目标</h3>${esc(connectionName(t.sourceId))} → ${esc(connectionName(t.targetId))}</div><div><h3>目标策略</h3>${t.targetPolicy==='overwrite'?'覆盖同名 Key':'要求目标为空'}</div></div><div class="divider"></div><p class="muted">启动后执行一次全量迁移，并持续同步增量；浏览器关闭不停止任务。</p>`;
-  shell([sections.tasks,t.id?'编辑任务':'新建任务'],pageLink('/tasks','返回任务列表','ghost','id="back-tasks"'),
+  shell([sections.tasks,'新建任务'],pageLink('/tasks','返回任务列表','ghost','id="back-tasks"'),
     `<div class="steps">${steps.map((s,i)=>`<span class="step ${i===state.step?'active':''}">${i+1} · ${s}</span>`).join('')}</div><div class="card form-page">${content}<div class="actions form-actions">${state.step>0?'<button class="ghost" id="previous-step">上一步</button>':''}${state.step<3?`<button class="primary" id="next-step">${state.step===1?'开始预检':'下一步'}</button>`:'<button class="primary" id="start-sync">启动同步</button>'}</div></div>`);
   on('previous-step','click',()=>{captureWizard();state.step--;render();});
   on('next-step','click',async event=>{
@@ -361,7 +361,6 @@ function renderWizard() {
       captureWizard();
       if(state.step===0&&(!t.name||!t.sourceId||!t.targetId))throw new Error('请填写任务名称并选择源端和目标端');
       if(state.step===1){
-        if(!await persistTaskForPreflight())return;
         await runChecks();
       }
       if(version!==navigationVersion)return;
@@ -369,47 +368,46 @@ function renderWizard() {
     } catch(error) { if(version===navigationVersion)notice(error.message,true); }
     finally { if(button.isConnected)button.disabled=false; }
   });
-  on('rerun-checks','click',async()=>{try{await runChecks();notice('预检已更新');}catch(error){notice(error.message,true);}});
-  on('start-sync','click',async()=>{try{await send('/tasks/'+t.id+'/start',{});if(await navigate(taskURL(t.id)))showSuccessToast('同步任务已启动');}catch(error){if(error.details?.checks)state.checks=error.details.checks;notice(error.message,true);}});
+  on('rerun-checks','click',async event=>{
+    const version=navigationVersion,button=event.currentTarget;
+    button.disabled=true;
+    try{await runChecks();if(version===navigationVersion)notice('预检已更新');}
+    catch(error){if(version===navigationVersion)notice(error.message,true);}
+    finally{if(button.isConnected)button.disabled=false;}
+  });
+  on('start-sync','click',async()=>{
+    const version=navigationVersion,buttons=[...root.querySelectorAll('.form-actions button')];
+    buttons.forEach(button=>button.disabled=true);
+    let created;
+    try{
+      created=await send('/tasks',t);
+      if(version!==navigationVersion)return;
+      await send('/tasks/'+created.id+'/start',{});
+      if(version===navigationVersion && await navigate(taskURL(created.id)))showSuccessToast('同步任务已启动');
+    }catch(error){
+      if(version!==navigationVersion)return;
+      if(created)await navigate(taskURL(created.id));
+      notice(error.message,true);
+    }finally{buttons.forEach(button=>{if(button.isConnected)button.disabled=false;});}
+  });
 }
 function captureWizard(){if(!byId('wizard-form'))return;const d=formData('wizard-form');if(state.step===0)Object.assign(state.editing,{name:d.name,sourceId:d.sourceId,targetId:d.targetId});if(state.step===1){state.editing.dbMap=parseMap(d.dbMap);state.editing.rules={allowPrefixes:lines(d.allowPrefixes),blockPrefixes:lines(d.blockPrefixes),allowRegex:lines(d.allowRegex),blockRegex:lines(d.blockRegex),allowCommands:lines(d.allowCommands),blockCommands:lines(d.blockCommands)};state.editing.targetPolicy=d.targetPolicy;}}
-async function persistTaskForPreflight(){
-  const t=state.editing,version=navigationVersion;
-  if(!t.name)throw new Error('任务名称不能为空');
-  const result=await send(t.id?'/tasks/'+t.id:'/tasks',t,t.id?'PUT':'POST');
-  if(version!==navigationVersion)return false;
-  state.editing={...t,id:result.id};
-  history.replaceState(null,'',taskURL(result.id)+'/edit');
-  return true;
-}
 async function runChecks(){
   const version=navigationVersion;
-  const checks=await send('/tasks/'+state.editing.id+'/preflight',{});
+  const checks=await send('/tasks/preflight',state.editing);
   if(version===navigationVersion)state.checks=checks;
 }
 
 function renderTask(){
   const t=state.tasks.find(x=>x.id===state.task);if(!t){state.page='not-found';render();return;}
   shell([sections.tasks,t.name],pageLink('/tasks','返回任务列表','ghost','id="back-tasks"'),
-    `<div class="card"><h2>运行状态</h2><div id="run-summary" class="muted">正在读取运行记录…</div><div class="actions"><button class="primary" id="run-start">${state.selectedRun?'重新全量运行':'启动同步'}</button><button class="secondary" id="run-stop">停止</button><button class="ghost" id="run-edit">编辑</button><button class="ghost" id="run-copy">复制任务</button><button class="danger" id="run-delete">删除任务</button></div></div><div class="card"><h2>目标 DB 清理</h2><p class="muted">此操作会清空所选目标 DB 内的所有 Key，不受任务 Key 规则限制。执行前需二次确认。</p><button class="danger" id="run-clear">清空所选目标 DB</button></div><div class="card"><div class="row"><h2>RedisShake 日志</h2><div class="actions" style="margin:0"><select id="log-run-select" aria-label="选择运行记录" style="min-width:190px"></select><button class="ghost" id="refresh-logs">刷新</button></div></div><pre class="log" id="run-log">暂无运行记录</pre></div>`);
-  on('run-edit','click',()=>navigate(taskURL(t.id)+'/edit'));
+    `<div class="card"><h2>运行状态</h2><div id="run-summary" class="muted">正在读取运行记录…</div><div class="actions"><button class="primary" id="run-start">${state.selectedRun?'重新全量运行':'启动同步'}</button><button class="secondary" id="run-stop">停止</button><button class="ghost" id="run-copy">复制任务</button><button class="danger" id="run-delete">删除任务</button></div></div><div class="card"><div class="row"><h2>RedisShake 日志</h2><div class="actions" style="margin:0"><select id="log-run-select" aria-label="选择运行记录" style="min-width:190px"></select><button class="ghost" id="refresh-logs">刷新</button></div></div><pre class="log" id="run-log">暂无运行记录</pre></div>`);
   on('run-copy','click',async()=>{try{await send('/tasks/'+t.id+'/copy',{});await loadLists();notice('任务已复制');}catch(error){notice(error.message,true);}});
   on('run-delete','click',async()=>{if(!confirm('删除任务记录？不会删除 Redis 数据。'))return;try{await api('/tasks/'+t.id,{method:'DELETE'});await navigate('/tasks');}catch(error){notice(error.message,true);}});
   on('run-start','click',async()=>{if(state.selectedRun&&!confirm('重新全量运行会从源端重新读取数据，不会断点续传。继续？'))return;try{const run=await send('/tasks/'+t.id+'/start',{});state.selectedRun=run.id;notice('同步已启动');}catch(error){notice(error.message,true);}});
   on('run-stop','click',async()=>{if(!state.selectedRun)return;try{await send('/runs/'+state.selectedRun+'/stop',{});notice('正在停止');}catch(error){notice(error.message,true);}});
   on('refresh-logs','click',loadRunDetails);
   on('log-run-select','change',event=>{state.logRun=event.target.value;loadRunDetails();});
-  on('run-clear','click',async()=>{
-    try {
-      const preview=await send('/tasks/'+t.id+'/clear-preview',{});
-      const scope=preview.kind==='cluster'?'整个目标 Cluster 的 DB 0':`目标 DB ${preview.dbs.join(', ')}`;
-      const typed=prompt(`即将清空「${preview.targetName}」的${scope}中的全部 Key。\n此操作不受任务 Key 过滤限制。\n请输入目标连接名称确认：`);
-      if(typed===null)return;
-      if(typed!==preview.targetName)throw new Error('连接名称不匹配，未执行清理');
-      const result=await send('/tasks/'+t.id+'/clear-confirm',{token:preview.token,targetName:typed});
-      notice(result.message+(result.results?.length?'；'+result.results.map(x=>`DB ${x.db} ${x.node}: ${x.message}`).join('；'):''),!result.ok);
-    } catch(error) { notice(error.message,true); }
-  });
   loadRunDetails();
 }
 async function loadRunDetails(){
@@ -423,7 +421,7 @@ async function loadRunDetails(){
     const selected=byId('log-run-select');if(selected){if(!runs.some(x=>x.id===state.logRun))state.logRun=run?.id||null;selected.innerHTML=runs.map((x,i)=>`<option value="${esc(x.id)}" ${state.logRun===x.id?'selected':''}>第 ${runs.length-i} 次 · ${esc(x.status)} · ${esc(x.startedAt)}</option>`).join('');syncSelect(selected);}
     byId('run-start').textContent=run?'重新全量运行':'启动同步';
     if(!run){summary.textContent='尚未运行';log.textContent='暂无运行记录';byId('run-stop').disabled=true;}
-    else{state.selectedRun=run.id;summary.innerHTML=`${badge(run.status)}　${badge(run.phase)}<p>开始：${esc(run.startedAt)}${run.endedAt?'　结束：'+esc(run.endedAt):''}</p>${run.error?`<div class="banner error">${esc(run.error)}</div>`:''}`;const busy=['RUNNING','STARTING','STOPPING'].includes(run.status);byId('run-stop').disabled=!busy;byId('run-start').disabled=busy;byId('run-edit').disabled=busy;byId('run-delete').disabled=busy;byId('run-clear').disabled=busy;try{const result=await api('/runs/'+state.logRun+'/logs');if(!isCurrent())return;log.textContent=(result.truncated?'…仅显示末尾日志\n':'')+result.text;}catch(error){log.textContent=error.message;}}
+    else{state.selectedRun=run.id;summary.innerHTML=`${badge(run.status)}　${badge(run.phase)}<p>开始：${esc(run.startedAt)}${run.endedAt?'　结束：'+esc(run.endedAt):''}</p>${run.error?`<div class="banner error">${esc(run.error)}</div>`:''}`;const busy=['RUNNING','STARTING','STOPPING'].includes(run.status);byId('run-stop').disabled=!busy;byId('run-start').disabled=busy;byId('run-delete').disabled=busy;try{const result=await api('/runs/'+state.logRun+'/logs');if(!isCurrent())return;log.textContent=(result.truncated?'…仅显示末尾日志\n':'')+result.text;}catch(error){log.textContent=error.message;}}
   }catch(error){if(!isCurrent())return;const summary=byId('run-summary');if(summary)summary.textContent='执行器暂不可用：'+error.message;}
   if(isCurrent())state.refresh=setTimeout(loadRunDetails,4000);
 }

@@ -138,6 +138,7 @@ p { line-height: 1.55; }
 .datasource-icon { display: block; width: 28px; height: 28px; margin-inline: auto; object-fit: contain; }
 .data-table .table-kind { width: 8.5rem; }
 .data-table .table-actions { width: 10.5rem; text-align: right; }
+.data-table thead .table-actions { text-align: left; }
 .data-table:has(.table-task-name) { min-width: 48rem; }
 .data-table .table-task-status { width: 6.5rem; }
 .data-table .table-task-offset { width: 19rem; }

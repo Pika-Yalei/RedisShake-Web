@@ -103,7 +103,12 @@ def main():
         api("/bootstrap/init", {"username": "offset_test", "password": "isolated-offset-test"})
         csrf = api("/login", {"username": "offset_test", "password": "isolated-offset-test"})["csrf"]
         connections = [api("/connections", {"name": role, "kind": "standalone", "address": f"127.0.0.1:{port}", "authMode": "none"}) for role, port in zip(["source", "target"], ports)]
-        task = api("/tasks", {"name": "Disposable offset integration", "sourceId": connections[0]["id"], "targetId": connections[1]["id"], "dbMap": {"0": 0}, "rules": {"blockPrefixes": ["excluded:"]}, "targetPolicy": "require_empty"})
+        draft = {"name": "Disposable offset integration", "sourceId": connections[0]["id"], "targetId": connections[1]["id"], "dbMap": {"0": 0}, "rules": {"blockPrefixes": ["excluded:"]}, "targetPolicy": "require_empty"}
+        checks = api('/tasks/preflight', draft)
+        assert all(check["ok"] for check in checks), checks
+        assert api('/tasks') == [], "preview must not create a task"
+        assert redis(ports[1], "DBSIZE") == "0", "preview must not modify the target"
+        task = api("/tasks", draft)
         checks = api(f'/tasks/{task["id"]}/preflight', {})
         assert all(check["ok"] for check in checks), checks
         run = api(f'/tasks/{task["id"]}/start', {})

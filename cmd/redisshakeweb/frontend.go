@@ -14,7 +14,7 @@ func frontendHandler(assets fs.FS) http.Handler {
 		http.ServeFileFS(w, r, assets, "index.html")
 	}
 	for _, route := range []string{
-		"/{$}", "/tasks", "/tasks/new", "/tasks/{id}", "/tasks/{id}/edit",
+		"/{$}", "/tasks", "/tasks/new", "/tasks/{id}",
 		"/connections", "/connections/new", "/connections/{id}/edit",
 	} {
 		mux.HandleFunc("GET "+route, page)

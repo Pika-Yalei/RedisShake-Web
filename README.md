@@ -2,7 +2,7 @@
 
 基于 [RedisShake v4.6.2](https://github.com/tair-opensource/RedisShake/releases/tag/v4.6.2) 的自部署 Redis 迁移管理界面。通过中文 Web 页面保存连接、配置规则、预检并启动单向全量迁移；全量完成后持续同步增量。前端使用原生 JavaScript，服务端使用 Go 与 SQLite；每个迁移任务由独立进程运行内核。
 
-当前是开发版本。隔离环境已完成单机、Sentinel、Cluster 九种拓扑组合，以及 Redis 6.2、7.2、8.0 九个版本方向的小数据量全量冒烟；部分组合验证了增量。目标覆盖、DB 映射、Key 与增量命令过滤、目标 DB 清理和 Web 独立重启也已通过测试。四平台实机运行、复杂命令和 24 小时稳定性尚未验收；不要把冒烟结果当作生产支持承诺。实测记录见 [验证状态](docs/verification.md)。
+当前是开发版本。隔离环境已完成单机、Sentinel、Cluster 九种拓扑组合，以及 Redis 6.2、7.2、8.0 九个版本方向的小数据量全量冒烟；部分组合验证了增量。目标覆盖、DB 映射、Key 与增量命令过滤和 Web 独立重启也已通过测试。四平台实机运行、复杂命令和 24 小时稳定性尚未验收；不要把冒烟结果当作生产支持承诺。实测记录见 [验证状态](docs/verification.md)。
 
 ## 快速启动
 
@@ -28,7 +28,7 @@ cd dist/redis-shake-web-$(go env GOOS)-$(go env GOARCH)
 
 支持交叉构建 `darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`，例如 `bash scripts/build.sh linux amd64`。执行 `bash scripts/package.sh` 可在 `dist/release/` 生成四个可解压运行的 `.tar.gz` 包和 `SHA256SUMS`。RedisShake 内核代码已直接合入项目的同一个 Go 模块：[单任务入口](internal/kernel/run.go)与[内部包](internal)基于官方 v4.6.2，包含本项目的增量过滤、进程存活与安全处理修改；[MIT 许可证](LICENSE.txt)保留在仓库根目录。发布包只有一个 `redis-shake-web` 可执行文件：Web 将请求交给常驻执行器，执行器每启动一个任务，就以内部 `task` 模式创建一个独立进程。Web 重启不影响已运行的任务进程。构建产物还包含文档、版本记录及 RedisShake 许可证；Docker 镜像也从仓库内源码构建。
 
-页面可以通过 URL 直接访问：任务列表 `/tasks`、新建任务 `/tasks/new`、任务详情 `/tasks/{id}`、编辑任务 `/tasks/{id}/edit`，以及连接列表 `/connections`、新建连接 `/connections/new`、编辑连接 `/connections/{id}/edit`。支持刷新、浏览器前进后退和新标签页打开；未登录时登录后继续进入原地址。
+页面可以通过 URL 直接访问：任务列表 `/tasks`、新建任务 `/tasks/new`、任务详情 `/tasks/{id}`，以及连接列表 `/connections`、新建连接 `/connections/new`、编辑连接 `/connections/{id}/edit`。支持刷新、浏览器前进后退和新标签页打开；未登录时登录后继续进入原地址。
 
 ## 自动化测试
 
@@ -46,7 +46,7 @@ go run ./tests vet ./...
 
 1. 在“连接管理”保存源端和目标端，分别测试连接。支持自建 Redis 单机、Sentinel 和 Cluster，明文连接，以及无认证、仅密码、仅账号（无密码）、账号和密码四种认证方式；Redis 与 Sentinel 分别设置。仅账号模式要求服务端 ACL 用户启用 `nopass`。编辑时密码留空保留原密码，选择无密码方式并保存可清除。暂不提供 Redis TLS。
 2. 在“同步任务”通过四步向导选择连接、设置一对一 DB 映射与 Key 规则、执行预检、确认启动。命令包含/排除规则仅作用于增量同步；默认要求目标 DB 为空，也可选择覆盖同名 Key。
-3. 运行中查看阶段和 RedisShake 原始日志。停止或失败后可重新全量运行；没有断点续传或自动重试。目标端清理是独立危险操作，必须确认目标连接名称；会清空选定目标 DB 内的**全部 Key**，不受任务 Key 过滤限制。
+3. 运行中查看阶段和 RedisShake 原始日志。停止或失败后可重新全量运行；没有断点续传或自动重试。不提供已保存任务的编辑或目标 DB 清理功能。新建任务在预检时不保存，点击“启动同步”时再创建任务。
 4. 切换业务由使用者自行安排和核验。产品不提供数据一致性校验或应用写入冲突处理；目标端应用写入可能被后续源端变更覆盖。
 
 单机和 Sentinel 可选择多个源 DB，但一个源 DB 只能映射到一个目标 DB，多个源 DB 不能合并；Cluster 仅有 DB 0。跨版本迁移遇到目标版本不支持的数据或命令时任务会失败，已写入目标的数据不会自动回滚。源端复制流中未过滤的 `FLUSHDB`/`FLUSHALL` 会使任务停止，避免整库清空绕过 Key 筛选。源端 Sentinel 默认从健康副本同步；预检找不到副本时阻止启动。这两项是当前安全默认值，可在需求确认后调整。

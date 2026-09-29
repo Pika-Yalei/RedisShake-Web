@@ -22,6 +22,8 @@ async function main() {
   let releaseRuns;
   let delayRuns = false;
   let createdTasks = 0;
+  const previews = [];
+  let failStart = false;
   const connections = Array.from({ length: 23 }, (_, i) => ({ id: `c${i + 1}`, name: `Redis Connection ${i + 1}`, kind: 'standalone', address: `localhost:${6379 + i}`, authMode: 'none' }));
   const tasks = Array.from({ length: 23 }, (_, i) => ({ id: `t${i + 1}`, name: `Redis Sync ${i + 1}`, sourceId: 'c1', targetId: 'c2', dbMap: { '0': 0 }, rules: {}, targetPolicy: 'require_empty', updatedAt: '2026-09-28T12:00:00Z' }));
   context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
@@ -47,8 +49,10 @@ async function main() {
         await new Promise(resolve => { releaseRuns = resolve; });
         return reply([{ id: 'old-run', status: 'FAILED', error: 'STALE TASK RESPONSE', startedAt: '2026-09-28' }]);
       }
+      if (url === '/api/tasks/t11/runs') return reply([{ id: 'active-fixture', status: 'RUNNING', phase: 'INCREMENTAL', startedAt: '2026-09-29' }]);
       return reply([]);
     }
+    if (url === '/api/runs/active-fixture/logs') return reply({ text: 'Fixture log' });
     if (method === 'POST' && url === '/api/connections') {
       const item = { ...req.postDataJSON(), id: 'saved-connection' };
       connections.push(item); return reply(item, 201);
@@ -61,12 +65,9 @@ async function main() {
       const item = { ...req.postDataJSON(), id: 'saved-task' };
       tasks.push(item); createdTasks++; return reply(item, 201);
     }
-    if (method === 'PUT' && url === '/api/tasks/saved-task') {
-      const item = tasks.find(item => item.id === 'saved-task');
-      Object.assign(item, req.postDataJSON()); return reply(item);
-    }
+    if (method === 'POST' && url === '/api/tasks/preflight') previews.push(req.postDataJSON());
     if (method === 'POST' && url.endsWith('/preflight')) return reply([{ name: '预检', ok: true, message: '通过' }]);
-    if (method === 'POST' && url.endsWith('/start')) return reply({ id: 'fixture-run' });
+    if (method === 'POST' && url.endsWith('/start')) return failStart ? reply({ error: '目标端预检未通过' }, 409) : reply({ id: 'fixture-run' });
     if (method === 'DELETE' && url.startsWith('/api/tasks/')) {
       tasks.splice(tasks.findIndex(item => item.id === url.split('/').pop()), 1); return reply({ ok: true });
     }
@@ -84,7 +85,7 @@ async function main() {
     for (const [url, title] of [
       ['/tasks', '同步任务'], ['/connections', '连接管理'],
       ['/tasks/new', '同步任务 / 新建任务'], ['/tasks/t1', '同步任务 / Redis Sync 1'],
-      ['/tasks/t1/edit', '同步任务 / 编辑任务'], ['/connections/new', '连接管理 / 新建连接'],
+      ['/connections/new', '连接管理 / 新建连接'],
       ['/connections/c1/edit', '连接管理 / 编辑连接'],
     ]) {
       assert.equal((await page.goto(baseURL + url)).status(), 200);
@@ -120,7 +121,11 @@ async function main() {
     await page.getByRole('button', { name: '下一页', exact: true }).click();
     await page.locator('[data-task="t11"]').click();
     await at('/tasks/t11', '同步任务 / Redis Sync 11');
-    await page.locator('#run-edit').click(); await at('/tasks/t11/edit', '同步任务 / 编辑任务');
+    await page.getByText('运行中', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '编辑', exact: true }).count(), 0);
+    assert.equal(await page.getByText('目标 DB 清理', { exact: true }).count(), 0);
+    assert.equal(await page.locator('#run-start').isDisabled(), true);
+    await page.screenshot({ path: path.join(output, 'task-detail-desktop.png') });
     await page.locator('#back-tasks').click(); await at('/tasks', '同步任务');
     assert.match(await page.locator('.pagination-pages').innerText(), /第 2 \/ 3 页/);
     await page.locator('#new-task').click(); await at('/tasks/new', '同步任务 / 新建任务');
@@ -130,18 +135,42 @@ async function main() {
       await page.getByRole('option', { name: label, exact: true }).click();
     }
     await page.locator('#next-step').click(); await page.locator('#dbMap').waitFor();
-    await page.locator('#next-step').click(); await at('/tasks/saved-task/edit', '同步任务 / 编辑任务');
+    await page.locator('#next-step').click(); await at('/tasks/new', '同步任务 / 新建任务');
     await page.getByRole('button', { name: '重新预检', exact: true }).waitFor();
-    await page.reload(); await at('/tasks/saved-task/edit', '同步任务 / 编辑任务');
-    assert.equal(await page.locator('#name').inputValue(), 'Saved URL task');
+    assert.equal(createdTasks, 0);
+    await page.locator('#previous-step').click(); await page.locator('#dbMap').waitFor();
+    await page.locator('#previous-step').click(); await page.locator('#name').fill('Saved URL task updated');
     await page.locator('#next-step').click(); await page.locator('#dbMap').waitFor();
     await page.locator('#next-step').click(); await page.locator('#rerun-checks').waitFor();
-    assert.equal(createdTasks, 1);
+    assert.equal(createdTasks, 0);
+    assert.equal(previews.at(-1).name, 'Saved URL task updated');
     await page.locator('#next-step').click(); await page.locator('#start-sync').click();
-    await at('/tasks/saved-task', '同步任务 / Saved URL task');
+    await at('/tasks/saved-task', '同步任务 / Saved URL task updated');
+    assert.equal(createdTasks, 1);
+    await page.reload(); await at('/tasks/saved-task', '同步任务 / Saved URL task updated');
     page.once('dialog', dialog => dialog.accept());
     await page.locator('#run-delete').click(); await at('/tasks', '同步任务');
     await page.goBack(); await at('/tasks/saved-task', '同步任务 / 页面不存在');
+    // A failed start keeps the created task available for retry without opening
+    // an editing flow or creating another task on the next attempt.
+    await page.goto(baseURL + '/tasks/new'); await heading('同步任务 / 新建任务');
+    await page.locator('#name').fill('Retry startup');
+    for (const [id, label] of [['sourceId', 'Redis Connection 1 · standalone'], ['targetId', 'Redis Connection 2 · standalone']]) {
+      await page.locator(`#${id}-trigger`).click();
+      await page.getByRole('option', { name: label, exact: true }).click();
+    }
+    await page.locator('#next-step').click(); await page.locator('#dbMap').waitFor();
+    await page.locator('#next-step').click(); await page.locator('#rerun-checks').waitFor();
+    await page.locator('#next-step').click(); failStart = true;
+    await page.locator('#start-sync').click(); await at('/tasks/saved-task', '同步任务 / Retry startup');
+    await page.getByText('目标端预检未通过', { exact: true }).waitFor();
+    assert.equal(createdTasks, 2);
+    failStart = false;
+    await page.locator('#run-start').click();
+    await page.getByText('同步已启动', { exact: true }).waitFor();
+    assert.equal(createdTasks, 2);
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('#run-delete').click(); await at('/tasks', '同步任务');
     await page.goto(baseURL + '/connections/removed/edit');
     await heading('连接管理 / 页面不存在');
 
@@ -173,13 +202,13 @@ async function main() {
     failLists = false;
     await page.getByRole('button', { name: '重试', exact: true }).click(); await at('/connections', '连接管理');
     authenticated = false;
-    await page.goto(baseURL + '/tasks/t2/edit');
+    await page.goto(baseURL + '/tasks/t2');
     await page.getByRole('button', { name: '登录', exact: true }).waitFor();
-    assert.equal(page.url(), baseURL + '/tasks/t2/edit');
+    assert.equal(page.url(), baseURL + '/tasks/t2');
     await page.locator('#password').fill('fixture');
     await page.getByRole('button', { name: '登录', exact: true }).click();
-    await at('/tasks/t2/edit', '同步任务 / 编辑任务');
-    assert.equal(await page.locator('#name').inputValue(), 'Redis Sync 2');
+    await at('/tasks/t2', '同步任务 / Redis Sync 2');
+    assert.equal(await page.getByRole('button', { name: '编辑', exact: true }).count(), 0);
     authenticated = false; initialized = false;
     await page.goto(baseURL + '/connections/new'); await heading('初始化管理员账号');
     await page.getByRole('button', { name: '创建管理员账号', exact: true }).click();
@@ -188,14 +217,17 @@ async function main() {
     await at('/connections/new', '连接管理 / 新建连接');
     await page.goto(baseURL + '/'); await at('/tasks', '同步任务');
     await page.goto(baseURL + '/?from=bookmark'); await at('/tasks?from=bookmark', '同步任务');
+    assert.equal(await page.locator('thead .table-actions').evaluate(el => getComputedStyle(el).textAlign), 'left');
+    assert.equal(await page.locator('[data-task]').first().innerText(), '详情');
     await page.screenshot({ path: path.join(output, 'tasks-desktop.png') });
     await page.locator('#nav-connections').click(); await heading('连接管理');
     const search = await page.getByRole('searchbox').boundingBox();
     const create = await page.locator('#new-connection').boundingBox();
     assert.equal(search.height, create.height); assert.equal(search.y, create.y);
+    assert.equal(await page.locator('thead .table-actions').evaluate(el => getComputedStyle(el).textAlign), 'left');
     await page.screenshot({ path: path.join(output, 'connections-desktop.png') });
     assert.deepEqual(errors, []); assert.deepEqual(unexpected, []);
-    console.log('PASS: direct URLs, reload, history, links, auth return, CRUD navigation, pagination, missing records, request races, desktop layout. All API calls mocked.');
+    console.log('PASS: direct URLs, reload, history, links, auth return, unsaved preview, create/start and failed-start retry, removed task controls, left action headings, pagination, missing records, request races, desktop layout. All API calls mocked.');
   } finally {
     releaseLists?.(); releaseRuns?.();
     await context.close(); await browser.close();

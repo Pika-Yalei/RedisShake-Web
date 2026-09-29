@@ -31,7 +31,7 @@ func TestFrontendPageRoutes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, path := range []string{"/", "/tasks", "/tasks/new", "/tasks/task-123", "/tasks/task-123/edit", "/connections", "/connections/new", "/connections/connection-123/edit"} {
+			for _, path := range []string{"/", "/tasks", "/tasks/new", "/tasks/task-123", "/connections", "/connections/new", "/connections/connection-123/edit"} {
 				for _, method := range []string{http.MethodGet, http.MethodHead} {
 					r := httptest.NewRecorder()
 					handler.ServeHTTP(r, httptest.NewRequest(method, path, nil))
@@ -46,7 +46,7 @@ func TestFrontendPageRoutes(t *testing.T) {
 					}
 				}
 			}
-			for _, path := range []string{"/missing.js", "/missing-page", "/tasks/id/unknown", "/connections/id", "/api/missing"} {
+			for _, path := range []string{"/tasks/task-123/edit", "/missing.js", "/missing-page", "/tasks/id/unknown", "/connections/id", "/api/missing"} {
 				r := httptest.NewRecorder()
 				handler.ServeHTTP(r, httptest.NewRequest(http.MethodGet, path, nil))
 				if r.Code != http.StatusNotFound {
