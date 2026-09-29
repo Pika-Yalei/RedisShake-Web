@@ -73,23 +73,29 @@ func (r *RedisClusterWriter) StartWrite(ctx context.Context) chan *entry.Entry {
 	return nil
 }
 
-func (r *RedisClusterWriter) Write(entry *entry.Entry) {
-	if len(entry.Slots) == 0 {
-		for _, writer := range r.writers {
-			writer.Write(entry)
+func (r *RedisClusterWriter) Write(e *entry.Entry) {
+	if len(e.Slots) == 0 {
+		callbacks := entry.SplitCompletion(e.OnWritten, len(r.writers))
+		for i, writer := range r.writers {
+			// Each writer mutates SerializedSize and acknowledges independently.
+			copy := *e
+			if e.OnWritten != nil {
+				copy.OnWritten = callbacks[i]
+			}
+			writer.Write(&copy)
 		}
 		return
 	}
 	lastSlot := -1
-	for _, slot := range entry.Slots {
+	for _, slot := range e.Slots {
 		if lastSlot == -1 {
 			lastSlot = slot
 		}
 		if slot != lastSlot {
-			log.Panicf("CROSSSLOT Keys in request don't hash to the same slot. argv=%v", entry.Argv)
+			log.Panicf("CROSSSLOT Keys in request don't hash to the same slot. argv=%v", e.Argv)
 		}
 	}
-	r.router[lastSlot].Write(entry)
+	r.router[lastSlot].Write(e)
 }
 
 func (r *RedisClusterWriter) Consistent() bool {

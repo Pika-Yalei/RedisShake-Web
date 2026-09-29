@@ -29,6 +29,7 @@ import (
 )
 
 type SyncReaderOptions struct {
+	TrackOffsets  bool                   `mapstructure:"-"`
 	Cluster       bool                   `mapstructure:"cluster" default:"false"`
 	Address       string                 `mapstructure:"address" default:""`
 	Username      string                 `mapstructure:"username" default:""`
@@ -106,7 +107,8 @@ type syncStandaloneReader struct {
 	stat syncStandaloneReaderStat
 
 	// version info
-	isDiskless bool
+	isDiskless   bool
+	trackOffsets bool
 }
 
 func NewSyncStandaloneReader(ctx context.Context, opts *SyncReaderOptions) Reader {
@@ -153,6 +155,7 @@ func (r *syncStandaloneReader) StartRead(ctx context.Context) []chan *entry.Entr
 // StartReadWithPSync is used in Redis version >= 2.8
 func (r *syncStandaloneReader) StartReadWithPSync(ctx context.Context) []chan *entry.Entry {
 	r.ctx = ctx
+	r.trackOffsets = r.opts.TrackOffsets
 	r.ch = make(chan *entry.Entry, 1024)
 	go func() {
 		r.sendReplconfListenPort()
@@ -168,6 +171,9 @@ func (r *syncStandaloneReader) StartReadWithPSync(ctx context.Context) []chan *e
 		if r.opts.SyncRdb {
 			r.sendRDB(rdbFilePath)
 		}
+		// A target PING fences the full snapshot before exposing its base offset,
+		// including full-only runs and sources that have no subsequent writes.
+		r.sendProgress(startOffset)
 		if r.opts.SyncAof {
 			r.stat.Status = kSyncAof
 			r.sendAOF(startOffset)
@@ -535,7 +541,8 @@ func (r *syncStandaloneReader) sendAOF(offset int64) {
 		}
 
 		argv := client.ArrayString(iArgv, nil)
-		r.stat.AofSentOffset = aofReader.Offset()
+		// The file reader can read ahead; only count the RESP command just parsed.
+		r.stat.AofSentOffset = aofReader.Offset() - int64(protoReader.Buffered())
 		// select
 		if strings.EqualFold(argv[0], "select") {
 			DbId, err := strconv.Atoi(argv[1])
@@ -543,18 +550,22 @@ func (r *syncStandaloneReader) sendAOF(offset int64) {
 				log.Panicf("%v", err)
 			}
 			r.DbId = DbId
+			r.sendProgress(r.stat.AofSentOffset)
 			continue
 		}
 		// ping
 		if strings.EqualFold(argv[0], "ping") {
+			r.sendProgress(r.stat.AofSentOffset)
 			continue
 		}
 		// replconf @AWS
 		if strings.EqualFold(argv[0], "replconf") {
+			r.sendProgress(r.stat.AofSentOffset)
 			continue
 		}
 		// opinfo @Aliyun
 		if strings.EqualFold(argv[0], "opinfo") {
+			r.sendProgress(r.stat.AofSentOffset)
 			continue
 		}
 		// ARS @Aliyun
@@ -563,10 +574,12 @@ func (r *syncStandaloneReader) sendAOF(offset int64) {
 		}
 		// txn
 		if strings.EqualFold(argv[0], "multi") || strings.EqualFold(argv[0], "exec") {
+			r.sendProgress(r.stat.AofSentOffset)
 			continue
 		}
 		// sentinel
 		if strings.EqualFold(argv[0], "publish") && strings.EqualFold(argv[1], "__sentinel__:hello") {
+			r.sendProgress(r.stat.AofSentOffset)
 			continue
 		}
 
@@ -574,7 +587,20 @@ func (r *syncStandaloneReader) sendAOF(offset int64) {
 		e.Argv = argv
 		e.DbId = r.DbId
 		e.IsIncremental = true
+		if r.trackOffsets {
+			e.SourceNode, e.SourceOffset = r.stat.Address, r.stat.AofSentOffset
+		}
 		r.ch <- e
+	}
+}
+
+func (r *syncStandaloneReader) sendProgress(offset int64) {
+	if !r.trackOffsets {
+		return
+	}
+	select {
+	case r.ch <- &entry.Entry{Argv: []string{"PING"}, SourceNode: r.stat.Address, SourceOffset: offset, ProgressOnly: true}:
+	case <-r.ctx.Done():
 	}
 }
 

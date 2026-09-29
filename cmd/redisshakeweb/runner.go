@@ -226,7 +226,15 @@ func (a *app) startRun(t Task, source, target Connection) (Run, error) {
 	consoleWriter := &boundedWriter{file: console, remaining: 1 << 20}
 	cmd.Stdout, cmd.Stderr = consoleWriter, consoleWriter
 	cmd.ExtraFiles = []*os.File{readPipe}
-	cmd.Env = append(os.Environ(), "REDISSHAKE_WEB_RUNNER_FD=3", "REDISSHAKE_WEB_LITERAL_CONFIG=1")
+	dbPath, err := filepath.Abs(filepath.Join(a.store.dir, "app.db"))
+	if err != nil {
+		_ = console.Close()
+		_ = readPipe.Close()
+		_ = writePipe.Close()
+		return Run{}, err
+	}
+	cmd.Env = append(os.Environ(), "REDISSHAKE_WEB_RUNNER_FD=3", "REDISSHAKE_WEB_LITERAL_CONFIG=1",
+		"REDISSHAKE_WEB_OFFSETS_DB="+dbPath, "REDISSHAKE_WEB_RUN_ID="+id)
 	if err := cmd.Start(); err != nil {
 		_ = console.Close()
 		_ = readPipe.Close()

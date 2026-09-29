@@ -176,6 +176,9 @@ func (w *redisStandaloneWriter) processReply() {
 		}
 		atomic.AddInt64(&w.stat.UnansweredBytes, -e.SerializedSize)
 		atomic.AddInt64(&w.stat.UnansweredEntries, -1)
+		if e.OnWritten != nil {
+			e.OnWritten()
+		}
 	}
 	w.chWaitWg.Done()
 }

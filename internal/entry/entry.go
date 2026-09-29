@@ -14,6 +14,11 @@ type Entry struct {
 	Argv []string // required
 	// Set by the sync reader for commands received after the RDB snapshot.
 	IsIncremental bool
+	// Managed-run progress metadata is not part of the serialized Redis command.
+	SourceNode   string `json:"-"`
+	SourceOffset int64  `json:"-"`
+	ProgressOnly bool   `json:"-"`
+	OnWritten    func() `json:"-"`
 
 	CmdName    string
 	Group      string

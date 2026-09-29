@@ -221,27 +221,42 @@ function renderTasks() {
   renderTaskTable();
 }
 function renderTaskTable(focusId) {
+  if(state.refresh){clearTimeout(state.refresh);state.refresh=null;}
   const query=state.taskSearch.trim().toLowerCase();
   const tasks=state.tasks.filter(t=>[t.name,connectionName(t.sourceId),connectionName(t.targetId)].some(value=>String(value||'').toLowerCase().includes(query)));
   const pagination=paginate(tasks,'task');
-  const columns=[{label:'任务名称',className:'table-task-name'},{label:'运行状态',className:'table-task-status'},{label:'操作',className:'table-actions table-task-actions'}];
+  const columns=[{label:'任务名称',className:'table-task-name'},{label:'运行状态',className:'table-task-status'},{label:'消费位点（Offset）',className:'table-task-offset'},{label:'操作',className:'table-actions table-task-actions'}];
   const rows=pagination.items.map(t=>[
     esc(t.name),
     `<span data-run-status="${esc(t.id)}">${badge('加载中')}</span>`,
+    `<span data-run-offset="${esc(t.id)}" class="consumed-offsets">—</span>`,
     `<div class="actions">${pageLink(taskURL(t.id),'查看详情','secondary',`data-task="${esc(t.id)}"`)}</div>`
   ]);
   const panel=byId('task-table');
   panel.innerHTML=tableHTML('同步任务列表',columns,rows,query?'未找到匹配的任务':'暂无同步任务')+paginationHTML('task',pagination);
   bindPagination('task',renderTaskTable,focusId);
-  pagination.items.forEach(async t=>{
-    const label=panel.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);
-    try{
-      const runs=await api('/tasks/'+t.id+'/runs');
-      if(label.isConnected)label.innerHTML=badge(runs[0]?.status);
-    }catch(error){
-      if(label.isConnected){label.innerHTML=badge('读取失败');label.title=error.message;}
-    }
-  });
+  const table=panel.querySelector('table');
+  const refresh=async()=>{
+    await Promise.all(pagination.items.map(async t=>{
+      const label=panel.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);
+      const offset=panel.querySelector(`[data-run-offset="${CSS.escape(t.id)}"]`);
+      try{
+        const runs=await api('/tasks/'+t.id+'/runs');
+        if(table.isConnected){
+          label.innerHTML=badge(runs[0]?.status);label.removeAttribute('title');
+          offset.innerHTML=consumedOffsetsHTML(runs[0]?.consumedOffsets);offset.removeAttribute('title');
+        }
+      }catch(error){
+        if(table.isConnected){label.innerHTML=badge('读取失败');label.title=error.message;offset.textContent='读取失败';offset.title=error.message;}
+      }
+    }));
+    if(table.isConnected && pagination.items.length)state.refresh=setTimeout(refresh,5000);
+  };
+  refresh();
+}
+function consumedOffsetsHTML(positions) {
+  if(!positions?.length)return '—';
+  return positions.map(p=>`<span class="consumed-offset" title="${esc(p.node)}">${positions.length>1?`<span class="offset-node">${esc(p.node)}</span>`:''}<span class="offset-value">${esc(p.offset)}</span></span>`).join('');
 }
 function connectionName(id) { return state.connections.find(x=>x.id===id)?.name || '未选择连接'; }
 function defaultName(prefix){

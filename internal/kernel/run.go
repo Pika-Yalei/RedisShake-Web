@@ -20,6 +20,7 @@ import (
 	"github.com/Pika-Yalei/RedisShake-Web/internal/entry"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/filter"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/log"
+	"github.com/Pika-Yalei/RedisShake-Web/internal/progress"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/reader"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/status"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/utils"
@@ -58,6 +59,22 @@ func Run(configPath string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	var offsets *progress.Recorder
+	if dbPath, runID := os.Getenv("REDISSHAKE_WEB_OFFSETS_DB"), os.Getenv("REDISSHAKE_WEB_RUN_ID"); dbPath != "" && runID != "" {
+		var err error
+		offsets, err = progress.Open(dbPath, runID)
+		if err != nil {
+			log.Panicf("open consumption offsets: %v", err)
+		}
+		defer offsets.Close()
+		flushCtx, stopFlush := context.WithCancel(context.Background())
+		flushed := make(chan struct{})
+		go func() {
+			defer close(flushed)
+			offsets.Run(flushCtx, progress.FlushInterval, func(err error) { log.Warnf("save consumption offsets: %v", err) })
+		}()
+		defer func() { stopFlush(); <-flushed }()
+	}
 	if os.Getenv("REDISSHAKE_WEB_RUNNER_FD") == "3" {
 		liveness := os.NewFile(3, "runner-liveness")
 		go func() {
@@ -78,6 +95,7 @@ func Run(configPath string) {
 		if err != nil {
 			log.Panicf("failed to read the SyncReader config entry. err: %v", err)
 		}
+		opts.TrackOffsets = offsets != nil
 		if opts.Cluster {
 			log.Infof("create SyncClusterReader")
 			log.Infof("* address (should be the address of one node in the Redis cluster): %s", opts.Address)
@@ -144,6 +162,9 @@ func Run(configPath string) {
 	var theWriter writer.Writer
 	switch {
 	case v.IsSet("file_writer"):
+		if offsets != nil {
+			log.Panicf("consumption offsets require Redis reply acknowledgements")
+		}
 		opts := new(writer.FileWriterOptions)
 		defaults.SetDefaults(opts)
 		err := v.UnmarshalKey("file_writer", opts)
@@ -157,6 +178,9 @@ func Run(configPath string) {
 		err := v.UnmarshalKey("redis_writer", opts)
 		if err != nil {
 			log.Panicf("failed to read the RedisStandaloneWriter config entry. err: %v", err)
+		}
+		if offsets != nil && opts.OffReply {
+			log.Panicf("consumption offsets require Redis reply acknowledgements")
 		}
 		if opts.OffReply && config.Opt.Advanced.RDBRestoreCommandBehavior == "panic" {
 			log.Panicf("the RDBRestoreCommandBehavior can't be 'panic' when the server not reply to commands")
@@ -212,7 +236,26 @@ func Run(configPath string) {
 
 	for _, chr := range chrs {
 		go func(ch chan *entry.Entry) {
+			discard := false
 			for e := range ch {
+				if discard {
+					continue
+				}
+				var consumed func()
+				if offsets != nil && e.SourceNode != "" {
+					var err error
+					consumed, err = offsets.Track(ctx, e.SourceNode, e.SourceOffset)
+					if err != nil {
+						discard = true
+						continue
+					}
+				}
+				if e.ProgressOnly {
+					e.OnWritten = consumed
+					e.Parse()
+					theWriter.Write(e)
+					continue
+				}
 				// calc arguments
 				e.Parse()
 
@@ -226,6 +269,9 @@ func Run(configPath string) {
 				// filter
 				if !filter.Filter(e) {
 					log.Debugf("skip command: %v", e)
+					if consumed != nil {
+						consumed()
+					}
 					continue
 				}
 
@@ -235,7 +281,11 @@ func Run(configPath string) {
 				log.Debugf("function after: %v", entries)
 
 				// write
-				for _, theEntry := range entries {
+				completions := entry.SplitCompletion(consumed, len(entries))
+				for i, theEntry := range entries {
+					if consumed != nil {
+						theEntry.OnWritten = completions[i]
+					}
 					theEntry.Parse()
 					theWriter.Write(theEntry)
 

@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Pika-Yalei/RedisShake-Web/internal/progress"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -73,14 +75,15 @@ type Task struct {
 }
 
 type Run struct {
-	ID        string `json:"id"`
-	TaskID    string `json:"taskId"`
-	Status    string `json:"status"`
-	Phase     string `json:"phase"`
-	Error     string `json:"error,omitempty"`
-	PID       int    `json:"pid,omitempty"`
-	StartedAt string `json:"startedAt"`
-	EndedAt   string `json:"endedAt,omitempty"`
+	ID              string              `json:"id"`
+	TaskID          string              `json:"taskId"`
+	Status          string              `json:"status"`
+	Phase           string              `json:"phase"`
+	Error           string              `json:"error,omitempty"`
+	PID             int                 `json:"pid,omitempty"`
+	StartedAt       string              `json:"startedAt"`
+	EndedAt         string              `json:"endedAt,omitempty"`
+	ConsumedOffsets []progress.Position `json:"consumedOffsets"`
 }
 
 func openStore(dir string) (*store, error) {
@@ -124,6 +127,7 @@ func openStore(dir string) (*store, error) {
 		"CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL)",
 		"CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, status TEXT NOT NULL, phase TEXT NOT NULL, error TEXT NOT NULL DEFAULT '', pid INTEGER NOT NULL DEFAULT 0, started_at TEXT NOT NULL, ended_at TEXT NOT NULL DEFAULT '')",
 		"CREATE INDEX IF NOT EXISTS idx_runs_task ON runs(task_id, started_at)",
+		progress.Schema,
 		"CREATE UNIQUE INDEX IF NOT EXISTS one_active_run ON runs(task_id) WHERE status IN ('STARTING','RUNNING','STOPPING')",
 		"CREATE TABLE IF NOT EXISTS clear_requests (digest TEXT PRIMARY KEY, task_id TEXT NOT NULL, target_digest TEXT NOT NULL, expires_at INTEGER NOT NULL, status TEXT NOT NULL, result TEXT NOT NULL DEFAULT '')",
 	} {
@@ -274,7 +278,9 @@ func (s *store) tasks() ([]Task, error) {
 }
 
 func (s *store) runs(taskID string) ([]Run, error) {
-	rows, err := s.db.Query("SELECT id,task_id,status,phase,error,pid,started_at,ended_at FROM runs WHERE task_id=? ORDER BY started_at DESC", taskID)
+	rows, err := s.db.Query(`SELECT r.id,r.task_id,r.status,r.phase,r.error,r.pid,r.started_at,r.ended_at,p.node,p.offset
+		FROM runs r LEFT JOIN run_offsets p ON p.run_id=r.id
+		WHERE r.task_id=? ORDER BY r.started_at DESC,r.rowid DESC,p.node`, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -282,10 +288,19 @@ func (s *store) runs(taskID string) ([]Run, error) {
 	out := []Run{}
 	for rows.Next() {
 		var run Run
-		if err := rows.Scan(&run.ID, &run.TaskID, &run.Status, &run.Phase, &run.Error, &run.PID, &run.StartedAt, &run.EndedAt); err != nil {
+		var node sql.NullString
+		var offset sql.NullInt64
+		if err := rows.Scan(&run.ID, &run.TaskID, &run.Status, &run.Phase, &run.Error, &run.PID, &run.StartedAt, &run.EndedAt, &node, &offset); err != nil {
 			return nil, err
 		}
-		out = append(out, run)
+		if len(out) == 0 || out[len(out)-1].ID != run.ID {
+			run.ConsumedOffsets = []progress.Position{}
+			out = append(out, run)
+		}
+		if node.Valid && offset.Valid {
+			last := &out[len(out)-1]
+			last.ConsumedOffsets = append(last.ConsumedOffsets, progress.Position{Node: node.String, Offset: offset.Int64})
+		}
 	}
 	return out, rows.Err()
 }
