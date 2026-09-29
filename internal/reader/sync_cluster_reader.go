@@ -6,6 +6,7 @@ import (
 
 	"github.com/Pika-Yalei/RedisShake-Web/internal/entry"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/log"
+	"github.com/Pika-Yalei/RedisShake-Web/internal/progress"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/utils"
 )
 
@@ -59,4 +60,12 @@ func (rd *syncClusterReader) StatusConsistent() bool {
 		}
 	}
 	return true
+}
+
+func (rd *syncClusterReader) ProgressSources() []progress.Source {
+	var sources []progress.Source
+	for _, r := range rd.readers {
+		sources = append(sources, r.(interface{ ProgressSources() []progress.Source }).ProgressSources()...)
+	}
+	return sources
 }

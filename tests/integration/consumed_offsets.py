@@ -121,6 +121,27 @@ def main():
         expected = replication_offset()
         wait_for(lambda: redis(ports[1], "GET", "incremental") == "first")
         wait_for(lambda: (persisted(run_id) or 0) >= expected)
+        runs_path = f'/tasks/{task["id"]}/runs'
+        def reported():
+            reports = api(runs_path)[0]["nodeProgress"]
+            assert len(reports) == 1
+            return reports[0]
+        report = reported()
+        assert report["node"] == f"127.0.0.1:{ports[0]}"
+        assert int(report["lag"]) == int(report["masterOffset"]) - int(report["offset"]), report
+        assert report["sampledAt"]
+        # Withhold target acknowledgements long enough to span the report timer.
+        redis(ports[1], "CLIENT", "PAUSE", 12000, "WRITE")
+        redis(ports[0], "SET", "delayed", "pending-ack")
+        expected_delayed = replication_offset()
+        def lag_reported():
+            report = reported()
+            return report if report["lag"] is not None and int(report["lag"]) > 0 and int(report["masterOffset"]) >= expected_delayed and int(report["offset"]) < expected_delayed else False
+        lagged = wait_for(lag_reported, timeout=10)
+        assert int(lagged["lag"]) == int(lagged["masterOffset"]) - int(lagged["offset"])
+        redis(ports[1], "CLIENT", "UNPAUSE")
+        wait_for(lambda: redis(ports[1], "GET", "delayed") == "pending-ack")
+        wait_for(lambda: (persisted(run_id) or 0) >= expected_delayed)
         first = persisted(run_id)
         # Write immediately after a periodic save, then stop before the next tick.
         redis(ports[0], "SET", "incremental", "final")
@@ -137,12 +158,16 @@ def main():
         saved = persisted(run_id)
         assert saved >= expected_final, (saved, expected_final)
         assert api(runs_path)[0]["consumedOffsets"] == [{"node": f"127.0.0.1:{ports[0]}", "offset": str(saved)}]
+        final_report = reported()
+        assert int(final_report["offset"]) == saved
+        assert int(final_report["lag"]) == int(final_report["masterOffset"]) - saved
         subprocess.run([str(BINARY), "shutdown", "--socket-dir", str(runtime)], check=True, capture_output=True)
         runner.wait(timeout=15)
         runner = start("runner")
         wait_for(web_ready)
         assert api(runs_path)[0]["consumedOffsets"][0]["offset"] == str(saved)
-        print(f"PASS: snapshot ACK, incremental ACK, in-memory buffering, periodic SQLite save, filtered commands, stop flush, API strings, runner restart. Offsets {baseline} -> {first} -> {saved}.")
+        assert reported() == final_report
+        print(f"PASS: task-reported master/lag, lag while target ACKs paused, report persistence, snapshot ACK, incremental ACK, in-memory buffering, periodic SQLite save, filtered commands, stop flush, API strings, runner restart. Offsets {baseline} -> {first} -> {saved}.")
     finally:
         subprocess.run([str(BINARY), "shutdown", "--socket-dir", str(runtime)], capture_output=True, timeout=25)
         for proc in reversed(processes):

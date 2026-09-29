@@ -73,15 +73,15 @@ NODE_PATH="$PWD/.redis-shake-web/dev/browser-tools/node_modules" node tests/brow
 
 ## 消费位点回归
 
-`browser/consumed_offsets.cjs` 同样使用隔离的无界面浏览器和 API fixtures，覆盖大整数、零位点、未知位点、Cluster 多节点、当前页轮询、搜索与焦点保持、错误恢复和空表尺寸；截图写入 `.redis-shake-web/dev/offset-ui/`。
+`browser/consumed_offsets.cjs` 同样使用隔离的无界面浏览器和 API fixtures，覆盖详情按节点展示任务上报的消费位点和延迟、大整数、零位点、未知位点、采集失败、过期上报、停止后的历史记录，以及三列任务列表、当前页轮询、搜索与焦点保持、错误恢复和空表尺寸；截图写入 `.redis-shake-web/dev/offset-ui/`。
 
 ```bash
 node tests/browser/consumed_offsets.cjs
 ```
 
-Go 用例覆盖目标回复前不推进、并行回复的连续确认、转换及广播命令的全部确认、内存窗口限流、RESP 读取缓冲边界、SQLite 定时保存与停止补存、保存失败后重试，以及重开数据库读取历史位点。
+Go 用例覆盖目标回复前不推进、并行回复的连续确认、转换及广播命令的全部确认、内存窗口限流、RESP 读取缓冲边界、SQLite 定时保存与停止补存、保存失败后重试，以及重开数据库读取历史位点。另覆盖逐节点 master 查询、副本追溯 master、复制历史匹配、位点差值、采集失败及不发生消费时继续上报。
 
-真实同步回归需要 Docker 和本地 `redis:7.2` 镜像。脚本创建两个临时 Redis 容器，使用随机端口和独立应用目录，验证全量与增量同步、过滤规则、内存缓存、每 5 秒保存、停止补存及 runner 重启后读取。不会连接现有 Redis 或修改开发实例的任务；成功或失败均清理本次创建的容器和进程，日志保留在 `.redis-shake-web/dev/offset-e2e-*/`。
+真实同步回归需要 Docker 和本地 `redis:7.2` 镜像。脚本创建两个临时 Redis 容器，使用随机端口和独立应用目录，验证全量与增量同步、过滤规则、内存缓存、每 5 秒保存、目标端暂停写入确认时的延迟上报、恢复后的消费推进、停止补存及 runner 重启后读取。不会连接现有 Redis 或修改开发实例的任务；成功或失败均清理本次创建的容器和进程，日志保留在 `.redis-shake-web/dev/offset-e2e-*/`。
 
 ```bash
 go build -o bin/redis-shake-web-dev-next ./cmd/redisshakeweb

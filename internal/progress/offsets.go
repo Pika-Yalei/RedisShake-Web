@@ -23,6 +23,7 @@ type source struct {
 	queue  list.List
 	offset int64
 	known  bool
+	replID string
 }
 
 type Tracker struct {
@@ -33,6 +34,16 @@ type Tracker struct {
 
 func NewTracker(limit int) *Tracker {
 	return &Tracker{sources: make(map[string]*source), slots: make(chan struct{}, limit)}
+}
+
+// SetReplicationID binds positions to the history returned by FULLRESYNC.
+func (t *Tracker) SetReplicationID(node, id string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.sources[node] == nil {
+		t.sources[node] = &source{}
+	}
+	t.sources[node].replID = id
 }
 
 // Track registers commands in source order. Completion can arrive in any order

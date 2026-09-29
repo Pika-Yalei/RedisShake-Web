@@ -3,6 +3,7 @@ package progress
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/url"
 	"time"
 
@@ -16,9 +17,10 @@ const Schema = `CREATE TABLE IF NOT EXISTS run_offsets (
 
 type Recorder struct {
 	*Tracker
-	db    *sql.DB
-	runID string
-	saved map[string]int64
+	db      *sql.DB
+	runID   string
+	saved   map[string]int64
+	Sources []Source // Configure once, before starting Run.
 }
 
 // Open uses the application's existing database; a wrong path must not silently
@@ -48,13 +50,28 @@ func (r *Recorder) Close() error { return r.db.Close() }
 // Flush is called by one persistence goroutine, never by command reply handlers.
 // Failed transactions leave saved unchanged and are retried on the next tick.
 func (r *Recorder) Flush() error {
+	var reports []NodeProgress
+	if len(r.Sources) > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		reports = r.Report(ctx, r.Sources)
+	}
+	positions := r.Snapshot()
+	if len(reports) > 0 {
+		positions = nil
+		for _, report := range reports {
+			if report.Offset != nil {
+				positions = append(positions, Position{Node: report.Node, Offset: *report.Offset})
+			}
+		}
+	}
 	var changed []Position
-	for _, p := range r.Snapshot() {
+	for _, p := range positions {
 		if previous, ok := r.saved[p.Node]; !ok || previous != p.Offset {
 			changed = append(changed, p)
 		}
 	}
-	if len(changed) == 0 {
+	if len(changed) == 0 && len(reports) == 0 {
 		return nil
 	}
 	tx, err := r.db.Begin()
@@ -66,6 +83,15 @@ func (r *Recorder) Flush() error {
 		_, err = tx.Exec(`INSERT INTO run_offsets(run_id,node,offset) VALUES(?,?,?)
 			ON CONFLICT(run_id,node) DO UPDATE SET offset=excluded.offset`, r.runID, p.Node, p.Offset)
 		if err != nil {
+			return err
+		}
+	}
+	if len(reports) > 0 {
+		payload, err := json.Marshal(reports)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT INTO run_progress(run_id,payload) VALUES(?,?) ON CONFLICT(run_id) DO UPDATE SET payload=excluded.payload`, r.runID, string(payload)); err != nil {
 			return err
 		}
 	}

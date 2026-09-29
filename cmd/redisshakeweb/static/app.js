@@ -225,11 +225,10 @@ function renderTaskTable(focusId) {
   const query=state.taskSearch.trim().toLowerCase();
   const tasks=state.tasks.filter(t=>[t.name,connectionName(t.sourceId),connectionName(t.targetId)].some(value=>String(value||'').toLowerCase().includes(query)));
   const pagination=paginate(tasks,'task');
-  const columns=[{label:'任务名称',className:'table-task-name'},{label:'运行状态',className:'table-task-status'},{label:'消费位点（Offset）',className:'table-task-offset'},{label:'操作',className:'table-actions table-task-actions'}];
+  const columns=[{label:'任务名称',className:'table-task-name'},{label:'运行状态',className:'table-task-status'},{label:'操作',className:'table-actions table-task-actions'}];
   const rows=pagination.items.map(t=>[
     esc(t.name),
     `<span data-run-status="${esc(t.id)}">${badge('加载中')}</span>`,
-    `<span data-run-offset="${esc(t.id)}" class="consumed-offsets">—</span>`,
     `<div class="actions">${pageLink(taskURL(t.id),'详情','secondary',`data-task="${esc(t.id)}"`)}</div>`
   ]);
   const panel=byId('task-table');
@@ -239,24 +238,46 @@ function renderTaskTable(focusId) {
   const refresh=async()=>{
     await Promise.all(pagination.items.map(async t=>{
       const label=panel.querySelector(`[data-run-status="${CSS.escape(t.id)}"]`);
-      const offset=panel.querySelector(`[data-run-offset="${CSS.escape(t.id)}"]`);
       try{
         const runs=await api('/tasks/'+t.id+'/runs');
         if(table.isConnected){
           label.innerHTML=badge(runs[0]?.status);label.removeAttribute('title');
-          offset.innerHTML=consumedOffsetsHTML(runs[0]?.consumedOffsets);offset.removeAttribute('title');
         }
       }catch(error){
-        if(table.isConnected){label.innerHTML=badge('读取失败');label.title=error.message;offset.textContent='读取失败';offset.title=error.message;}
+        if(table.isConnected){label.innerHTML=badge('读取失败');label.title=error.message;}
       }
     }));
     if(table.isConnected && pagination.items.length)state.refresh=setTimeout(refresh,5000);
   };
   refresh();
 }
-function consumedOffsetsHTML(positions) {
-  if(!positions?.length)return '—';
-  return positions.map(p=>`<span class="consumed-offset" title="${esc(p.node)}">${positions.length>1?`<span class="offset-node">${esc(p.node)}</span>`:''}<span class="offset-value">${esc(p.offset)}</span></span>`).join('');
+function nodeProgressHTML(run, error='') {
+  const columns=[{label:'源节点',className:'progress-node'},{label:'消费 Offset',className:'progress-offset'},{label:'延迟 Offset',className:'progress-offset'},{label:'上报状态',className:'progress-report'}];
+  const active=['RUNNING','STARTING','STOPPING'].includes(run?.status);
+  const positions=run?.nodeProgress?.length?run.nodeProgress:(run?.consumedOffsets||[]);
+  const rows=error?[]:positions.map(p=>{
+    const sampled=Date.parse(p.sampledAt);
+    const stale=active&&(!Number.isFinite(sampled)||Date.now()-sampled>15000);
+    const unknown=p.offset==null;
+    const detail=p.error||(!p.sampledAt?'尚未上报 master 位点':unknown?'等待消费位点':p.lag==null?'位点暂不可比较':'');
+    const status=stale?'上报已过期':active?'最近上报':'最后上报';
+    return [
+      `${esc(p.node)}${p.masterNode&&p.masterNode!==p.node?`<small class="progress-note">master：${esc(p.masterNode)}</small>`:''}`,
+      `<span class="offset-value">${unknown?'—':esc(p.offset)}</span>`,
+      `<span class="offset-value"${p.masterOffset!=null?` title="master Offset：${esc(p.masterOffset)}"`:''}>${stale||p.error||p.lag==null?'—':esc(p.lag)}</span>`,
+      `${Number.isFinite(sampled)?`<span>${status}</span><time class="progress-note" datetime="${esc(p.sampledAt)}">${esc(new Date(sampled).toLocaleString())}</time>`:''}${detail?`<span class="progress-note">${esc(detail)}</span>`:''}`
+    ];
+  });
+  return tableHTML('各源节点同步位点',columns,rows,error||(!run?'尚未运行，暂无位点':'等待任务上报位点'));
+}
+function updateNodeProgress(run, error='') {
+  const panel=byId('run-progress');if(!panel)return;
+  const previous=panel.querySelector('.table-scroll');
+  const top=previous?.scrollTop||0,left=previous?.scrollLeft||0,focused=previous===document.activeElement;
+  panel.innerHTML=nodeProgressHTML(run,error);
+  const current=panel.querySelector('.table-scroll');
+  current.scrollTop=top;current.scrollLeft=left;
+  if(focused)current.focus({preventScroll:true});
 }
 function connectionName(id) { return state.connections.find(x=>x.id===id)?.name || '未选择连接'; }
 function defaultName(prefix){
@@ -401,7 +422,7 @@ async function runChecks(){
 function renderTask(){
   const t=state.tasks.find(x=>x.id===state.task);if(!t){state.page='not-found';render();return;}
   shell([sections.tasks,t.name],pageLink('/tasks','返回任务列表','ghost','id="back-tasks"'),
-    `<div class="card"><h2>运行状态</h2><div id="run-summary" class="muted">正在读取运行记录…</div><div class="actions"><button class="primary" id="run-start">${state.selectedRun?'重新全量运行':'启动同步'}</button><button class="secondary" id="run-stop">停止</button><button class="ghost" id="run-copy">复制任务</button><button class="danger" id="run-delete">删除任务</button></div></div><div class="card"><div class="row"><h2>RedisShake 日志</h2><div class="actions" style="margin:0"><select id="log-run-select" aria-label="选择运行记录" style="min-width:190px"></select><button class="ghost" id="refresh-logs">刷新</button></div></div><pre class="log" id="run-log">暂无运行记录</pre></div>`);
+    `<div class="card"><h2>运行状态</h2><div id="run-summary" class="muted">正在读取运行记录…</div><div class="actions"><button class="primary" id="run-start">${state.selectedRun?'重新全量运行':'启动同步'}</button><button class="secondary" id="run-stop">停止</button><button class="ghost" id="run-copy">复制任务</button><button class="danger" id="run-delete">删除任务</button></div></div><div class="card"><h2>同步位点</h2><p class="muted progress-description">延迟 Offset 为源端 master 位点与消费位点的差值，由任务每 5 秒上报。各节点独立计算，单位为复制流字节。</p><div id="run-progress" class="node-progress">${nodeProgressHTML(null)}</div></div><div class="card"><div class="row"><h2>RedisShake 日志</h2><div class="actions" style="margin:0"><select id="log-run-select" aria-label="选择运行记录" style="min-width:190px"></select><button class="ghost" id="refresh-logs">刷新</button></div></div><pre class="log" id="run-log">暂无运行记录</pre></div>`);
   on('run-copy','click',async()=>{try{await send('/tasks/'+t.id+'/copy',{});await loadLists();notice('任务已复制');}catch(error){notice(error.message,true);}});
   on('run-delete','click',async()=>{if(!confirm('删除任务记录？不会删除 Redis 数据。'))return;try{await api('/tasks/'+t.id,{method:'DELETE'});await navigate('/tasks');}catch(error){notice(error.message,true);}});
   on('run-start','click',async()=>{if(state.selectedRun&&!confirm('重新全量运行会从源端重新读取数据，不会断点续传。继续？'))return;try{const run=await send('/tasks/'+t.id+'/start',{});state.selectedRun=run.id;notice('同步已启动');}catch(error){notice(error.message,true);}});
@@ -419,10 +440,11 @@ async function loadRunDetails(){
     const runs=await api('/tasks/'+taskID+'/runs');if(!isCurrent())return;const run=runs[0];
     const summary=byId('run-summary');const log=byId('run-log');if(!summary||!log)return;
     const selected=byId('log-run-select');if(selected){if(!runs.some(x=>x.id===state.logRun))state.logRun=run?.id||null;selected.innerHTML=runs.map((x,i)=>`<option value="${esc(x.id)}" ${state.logRun===x.id?'selected':''}>第 ${runs.length-i} 次 · ${esc(x.status)} · ${esc(x.startedAt)}</option>`).join('');syncSelect(selected);}
+    updateNodeProgress(run);
     byId('run-start').textContent=run?'重新全量运行':'启动同步';
     if(!run){summary.textContent='尚未运行';log.textContent='暂无运行记录';byId('run-stop').disabled=true;}
     else{state.selectedRun=run.id;summary.innerHTML=`${badge(run.status)}　${badge(run.phase)}<p>开始：${esc(run.startedAt)}${run.endedAt?'　结束：'+esc(run.endedAt):''}</p>${run.error?`<div class="banner error">${esc(run.error)}</div>`:''}`;const busy=['RUNNING','STARTING','STOPPING'].includes(run.status);byId('run-stop').disabled=!busy;byId('run-start').disabled=busy;byId('run-delete').disabled=busy;try{const result=await api('/runs/'+state.logRun+'/logs');if(!isCurrent())return;log.textContent=(result.truncated?'…仅显示末尾日志\n':'')+result.text;}catch(error){log.textContent=error.message;}}
-  }catch(error){if(!isCurrent())return;const summary=byId('run-summary');if(summary)summary.textContent='执行器暂不可用：'+error.message;}
+  }catch(error){if(!isCurrent())return;const summary=byId('run-summary');if(summary)summary.textContent='执行器暂不可用：'+error.message;updateNodeProgress(null,'位点读取失败：'+error.message);}
   if(isCurrent())state.refresh=setTimeout(loadRunDetails,4000);
 }
 

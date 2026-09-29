@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"os"
 	"regexp"
@@ -90,18 +91,26 @@ func NewRedisClient(ctx context.Context, address string, username string, passwo
 }
 
 func getTlsConfig(tlsConfig TlsConfig) *tls.Config {
+	cfg, err := loadTlsConfig(tlsConfig)
+	if err != nil {
+		log.Panicf("load tls config: %v", err)
+	}
+	return cfg
+}
+
+func loadTlsConfig(tlsConfig TlsConfig) (*tls.Config, error) {
 	if tlsConfig.CACertFilePath == "" || tlsConfig.CertFilePath == "" || tlsConfig.KeyFilePath == "" {
-		return &tls.Config{InsecureSkipVerify: true}
+		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
 
 	// Use mutual authentication (mTLS)
 	cert, err := tls.LoadX509KeyPair(tlsConfig.CertFilePath, tlsConfig.KeyFilePath)
 	if err != nil {
-		log.Panicf("load tls cert failed. cert=[%s], key=[%s], err=[%v]", tlsConfig.CertFilePath, tlsConfig.KeyFilePath, err)
+		return nil, fmt.Errorf("load tls cert: %w", err)
 	}
 	caCert, err := os.ReadFile(tlsConfig.CACertFilePath)
 	if err != nil {
-		log.Panicf("read ca cert failed. ca_cert=[%s], err=[%v]", tlsConfig.CACertFilePath, err)
+		return nil, fmt.Errorf("read ca cert: %w", err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -109,7 +118,7 @@ func getTlsConfig(tlsConfig TlsConfig) *tls.Config {
 		RootCAs:            caCertPool,
 		Certificates:       []tls.Certificate{cert},
 		InsecureSkipVerify: true,
-	}
+	}, nil
 }
 
 type Replica struct {

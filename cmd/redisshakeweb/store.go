@@ -75,15 +75,16 @@ type Task struct {
 }
 
 type Run struct {
-	ID              string              `json:"id"`
-	TaskID          string              `json:"taskId"`
-	Status          string              `json:"status"`
-	Phase           string              `json:"phase"`
-	Error           string              `json:"error,omitempty"`
-	PID             int                 `json:"pid,omitempty"`
-	StartedAt       string              `json:"startedAt"`
-	EndedAt         string              `json:"endedAt,omitempty"`
-	ConsumedOffsets []progress.Position `json:"consumedOffsets"`
+	ID              string                  `json:"id"`
+	TaskID          string                  `json:"taskId"`
+	Status          string                  `json:"status"`
+	Phase           string                  `json:"phase"`
+	Error           string                  `json:"error,omitempty"`
+	PID             int                     `json:"pid,omitempty"`
+	StartedAt       string                  `json:"startedAt"`
+	EndedAt         string                  `json:"endedAt,omitempty"`
+	NodeProgress    []progress.NodeProgress `json:"nodeProgress"`
+	ConsumedOffsets []progress.Position     `json:"consumedOffsets"`
 }
 
 func openStore(dir string) (*store, error) {
@@ -128,6 +129,7 @@ func openStore(dir string) (*store, error) {
 		"CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, status TEXT NOT NULL, phase TEXT NOT NULL, error TEXT NOT NULL DEFAULT '', pid INTEGER NOT NULL DEFAULT 0, started_at TEXT NOT NULL, ended_at TEXT NOT NULL DEFAULT '')",
 		"CREATE INDEX IF NOT EXISTS idx_runs_task ON runs(task_id, started_at)",
 		progress.Schema,
+		progress.ReportSchema,
 		"CREATE UNIQUE INDEX IF NOT EXISTS one_active_run ON runs(task_id) WHERE status IN ('STARTING','RUNNING','STOPPING')",
 	} {
 		if _, err := db.Exec(statement); err != nil {
@@ -277,8 +279,8 @@ func (s *store) tasks() ([]Task, error) {
 }
 
 func (s *store) runs(taskID string) ([]Run, error) {
-	rows, err := s.db.Query(`SELECT r.id,r.task_id,r.status,r.phase,r.error,r.pid,r.started_at,r.ended_at,p.node,p.offset
-		FROM runs r LEFT JOIN run_offsets p ON p.run_id=r.id
+	rows, err := s.db.Query(`SELECT r.id,r.task_id,r.status,r.phase,r.error,r.pid,r.started_at,r.ended_at,p.node,p.offset,report.payload
+		FROM runs r LEFT JOIN run_offsets p ON p.run_id=r.id LEFT JOIN run_progress report ON report.run_id=r.id
 		WHERE r.task_id=? ORDER BY r.started_at DESC,r.rowid DESC,p.node`, taskID)
 	if err != nil {
 		return nil, err
@@ -287,13 +289,19 @@ func (s *store) runs(taskID string) ([]Run, error) {
 	out := []Run{}
 	for rows.Next() {
 		var run Run
-		var node sql.NullString
+		var node, payload sql.NullString
 		var offset sql.NullInt64
-		if err := rows.Scan(&run.ID, &run.TaskID, &run.Status, &run.Phase, &run.Error, &run.PID, &run.StartedAt, &run.EndedAt, &node, &offset); err != nil {
+		if err := rows.Scan(&run.ID, &run.TaskID, &run.Status, &run.Phase, &run.Error, &run.PID, &run.StartedAt, &run.EndedAt, &node, &offset, &payload); err != nil {
 			return nil, err
 		}
 		if len(out) == 0 || out[len(out)-1].ID != run.ID {
 			run.ConsumedOffsets = []progress.Position{}
+			run.NodeProgress = []progress.NodeProgress{}
+			if payload.Valid {
+				if err := json.Unmarshal([]byte(payload.String), &run.NodeProgress); err != nil {
+					return nil, fmt.Errorf("decode node progress: %w", err)
+				}
+			}
 			out = append(out, run)
 		}
 		if node.Valid && offset.Valid {

@@ -21,6 +21,7 @@ import (
 	"github.com/Pika-Yalei/RedisShake-Web/internal/config"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/entry"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/log"
+	"github.com/Pika-Yalei/RedisShake-Web/internal/progress"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/rdb"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/utils"
 	rotate "github.com/Pika-Yalei/RedisShake-Web/internal/utils/file_rotate"
@@ -29,18 +30,19 @@ import (
 )
 
 type SyncReaderOptions struct {
-	TrackOffsets  bool                   `mapstructure:"-"`
-	Cluster       bool                   `mapstructure:"cluster" default:"false"`
-	Address       string                 `mapstructure:"address" default:""`
-	Username      string                 `mapstructure:"username" default:""`
-	Password      string                 `mapstructure:"password" default:""`
-	Tls           bool                   `mapstructure:"tls" default:"false"`
-	TlsConfig     client.TlsConfig       `mapstructure:"tls_config" default:"{}"`
-	SyncRdb       bool                   `mapstructure:"sync_rdb" default:"true"`
-	SyncAof       bool                   `mapstructure:"sync_aof" default:"true"`
-	PreferReplica bool                   `mapstructure:"prefer_replica" default:"false"`
-	TryDiskless   bool                   `mapstructure:"try_diskless" default:"false"`
-	Sentinel      client.SentinelOptions `mapstructure:"sentinel"`
+	OnReplicationStart func(node, id string)  `mapstructure:"-"`
+	TrackOffsets       bool                   `mapstructure:"-"`
+	Cluster            bool                   `mapstructure:"cluster" default:"false"`
+	Address            string                 `mapstructure:"address" default:""`
+	Username           string                 `mapstructure:"username" default:""`
+	Password           string                 `mapstructure:"password" default:""`
+	Tls                bool                   `mapstructure:"tls" default:"false"`
+	TlsConfig          client.TlsConfig       `mapstructure:"tls_config" default:"{}"`
+	SyncRdb            bool                   `mapstructure:"sync_rdb" default:"true"`
+	SyncAof            bool                   `mapstructure:"sync_aof" default:"true"`
+	PreferReplica      bool                   `mapstructure:"prefer_replica" default:"false"`
+	TryDiskless        bool                   `mapstructure:"try_diskless" default:"false"`
+	Sentinel           client.SentinelOptions `mapstructure:"sentinel"`
 }
 
 const RDB_EOF_MARKER_LEN = 40
@@ -284,11 +286,18 @@ func (r *syncStandaloneReader) sendPSync() {
 		}
 	}
 	reply := r.client.ReceiveString()
-	masterOffset, err := strconv.Atoi(strings.Split(reply, " ")[2])
+	parts := strings.Fields(reply)
+	if len(parts) != 3 || parts[0] != "FULLRESYNC" {
+		log.Panicf("invalid PSYNC reply: %s", reply)
+	}
+	masterOffset, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil {
 		log.Panicf("%v", err)
 	}
-	r.stat.AofReceivedOffset = int64(masterOffset)
+	r.stat.AofReceivedOffset = masterOffset
+	if r.opts.OnReplicationStart != nil {
+		r.opts.OnReplicationStart(r.stat.Address, parts[1])
+	}
 }
 
 func (r *syncStandaloneReader) sendReplconfRDBOnly() {
@@ -644,4 +653,11 @@ func (r *syncStandaloneReader) StatusConsistent() bool {
 	return r.stat.AofReceivedOffset != 0 &&
 		r.stat.AofReceivedOffset == r.stat.AofSentOffset &&
 		len(r.ch) == 0
+}
+
+func (r *syncStandaloneReader) ProgressSources() []progress.Source {
+	opts := *r.opts
+	return []progress.Source{{Node: opts.Address, ReadMaster: func(ctx context.Context) (client.MasterPosition, error) {
+		return client.ReadMasterPosition(ctx, opts.Address, opts.Username, opts.Password, opts.Tls, opts.TlsConfig)
+	}}}
 }

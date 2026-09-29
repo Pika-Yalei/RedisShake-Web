@@ -67,13 +67,6 @@ func Run(configPath string) {
 			log.Panicf("open consumption offsets: %v", err)
 		}
 		defer offsets.Close()
-		flushCtx, stopFlush := context.WithCancel(context.Background())
-		flushed := make(chan struct{})
-		go func() {
-			defer close(flushed)
-			offsets.Run(flushCtx, progress.FlushInterval, func(err error) { log.Warnf("save consumption offsets: %v", err) })
-		}()
-		defer func() { stopFlush(); <-flushed }()
 	}
 	if os.Getenv("REDISSHAKE_WEB_RUNNER_FD") == "3" {
 		liveness := os.NewFile(3, "runner-liveness")
@@ -96,6 +89,9 @@ func Run(configPath string) {
 			log.Panicf("failed to read the SyncReader config entry. err: %v", err)
 		}
 		opts.TrackOffsets = offsets != nil
+		if offsets != nil {
+			opts.OnReplicationStart = offsets.SetReplicationID
+		}
 		if opts.Cluster {
 			log.Infof("create SyncClusterReader")
 			log.Infof("* address (should be the address of one node in the Redis cluster): %s", opts.Address)
@@ -157,6 +153,18 @@ func Run(configPath string) {
 		log.Infof("create AOFReader: %v", opts.Filepath)
 	default:
 		log.Panicf("no reader config entry found")
+	}
+	if offsets != nil {
+		if reporter, ok := theReader.(interface{ ProgressSources() []progress.Source }); ok {
+			offsets.Sources = reporter.ProgressSources()
+		}
+		flushCtx, stopFlush := context.WithCancel(context.Background())
+		flushed := make(chan struct{})
+		go func() {
+			defer close(flushed)
+			offsets.Run(flushCtx, progress.FlushInterval, func(err error) { log.Warnf("save consumption offsets: %v", err) })
+		}()
+		defer func() { stopFlush(); <-flushed }()
 	}
 	// create writer
 	var theWriter writer.Writer

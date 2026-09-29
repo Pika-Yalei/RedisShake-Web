@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Pika-Yalei/RedisShake-Web/internal/client"
 	"github.com/Pika-Yalei/RedisShake-Web/internal/progress"
 	"github.com/stretchr/testify/require"
 )
@@ -25,6 +26,15 @@ func TestRunsLoadPersistedConsumedOffsets(t *testing.T) {
 		require.NoError(t, err)
 		ack()
 	}
+	r.SetReplicationID("a:6379", "history")
+	r.Sources = []progress.Source{
+		{Node: "a:6379", ReadMaster: func(context.Context) (client.MasterPosition, error) {
+			return client.MasterPosition{Node: "a:6379", Offset: 9007199254741093, ReplicationID: "history"}, nil
+		}},
+		{Node: "b:6379", ReadMaster: func(context.Context) (client.MasterPosition, error) {
+			return client.MasterPosition{Node: "b:6379", Offset: 0}, nil
+		}},
+	}
 	require.NoError(t, r.Flush())
 	require.NoError(t, r.Close())
 	require.NoError(t, s.db.Close())
@@ -37,6 +47,11 @@ func TestRunsLoadPersistedConsumedOffsets(t *testing.T) {
 	require.Equal(t, "new", runs[0].ID)
 	require.Equal(t, []progress.Position{{Node: "a:6379", Offset: 9007199254740993}, {Node: "b:6379", Offset: 0}}, runs[0].ConsumedOffsets)
 	require.Empty(t, runs[1].ConsumedOffsets)
+	require.Empty(t, runs[1].NodeProgress)
+	require.Len(t, runs[0].NodeProgress, 2)
+	require.Equal(t, int64(100), *runs[0].NodeProgress[0].Lag)
+	require.Equal(t, int64(9007199254740993), *runs[0].NodeProgress[0].Offset)
+	require.Nil(t, runs[0].NodeProgress[1].Lag)
 	data, err := json.Marshal(runs)
 	require.NoError(t, err)
 	require.Contains(t, string(data), `"offset":"9007199254740993"`)

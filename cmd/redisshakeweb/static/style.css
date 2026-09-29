@@ -139,13 +139,17 @@ p { line-height: 1.55; }
 .data-table .table-kind { width: 8.5rem; }
 .data-table .table-actions { width: 10.5rem; text-align: right; }
 .data-table thead .table-actions { text-align: left; }
-.data-table:has(.table-task-name) { min-width: 48rem; }
+.data-table:has(.table-task-name) { min-width: 32rem; }
 .data-table .table-task-status { width: 6.5rem; }
-.data-table .table-task-offset { width: 19rem; }
-.consumed-offsets, .consumed-offset { display: grid; gap: 4px; }
-.consumed-offsets { gap: 8px; }
 .offset-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
-.offset-node { color: var(--secondary); font-size: .875rem; }
+.progress-description { margin: 0 0 16px; font-size: .875rem; }
+.node-progress .table-scroll { max-height: 24rem; }
+.node-progress .table-empty { height: 6rem; }
+.node-progress .data-table { min-width: 60rem; }
+.node-progress .offset-value { white-space: nowrap; }
+.node-progress .progress-node { width: 28%; }
+.node-progress .progress-offset { width: 23%; }
+.progress-note { display: block; margin-top: 4px; color: var(--secondary); font-size: .875rem; font-weight: 400; }
 .data-table .table-task-actions { width: 8rem; }
 .table-actions .actions { justify-content: flex-end; flex-wrap: nowrap; gap: 8px; margin: 0; }
 .table-actions .danger { margin-left: 0; }
