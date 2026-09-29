@@ -224,11 +224,10 @@ function renderTaskTable(focusId) {
   const query=state.taskSearch.trim().toLowerCase();
   const tasks=state.tasks.filter(t=>[t.name,connectionName(t.sourceId),connectionName(t.targetId)].some(value=>String(value||'').toLowerCase().includes(query)));
   const pagination=paginate(tasks,'task');
-  const columns=[{label:'任务名称',className:'table-task-name'},{label:'源连接',className:'table-task-connection'},{label:'目标连接',className:'table-task-connection'},{label:'运行状态',className:'table-task-status'},{label:'更新时间',className:'table-task-updated'},{label:'操作',className:'table-actions table-task-actions'}];
+  const columns=[{label:'任务名称',className:'table-task-name'},{label:'运行状态',className:'table-task-status'},{label:'操作',className:'table-actions table-task-actions'}];
   const rows=pagination.items.map(t=>[
-    esc(t.name),esc(connectionName(t.sourceId)),esc(connectionName(t.targetId)),
+    esc(t.name),
     `<span data-run-status="${esc(t.id)}">${badge('加载中')}</span>`,
-    esc(t.updatedAt?new Date(t.updatedAt).toLocaleString('zh-CN',{hour12:false}):'—'),
     `<div class="actions">${pageLink(taskURL(t.id),'查看详情','secondary',`data-task="${esc(t.id)}"`)}</div>`
   ]);
   const panel=byId('task-table');
@@ -252,7 +251,7 @@ function defaultName(prefix){
 
 function renderConnections() {
   shell([sections.connections],'',
-    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="connection-search" aria-label="搜索连接" placeholder="连接名称、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div>${pageLink('/connections/new',icon('plus')+' 新建连接','primary','id="new-connection"')}</div><div id="connection-table" class="table-panel"></div>`);
+    `<div class="table-toolbar"><div class="table-search" role="search"><input type="search" id="connection-search" aria-label="搜索连接" placeholder="连接名称、数据源类型、部署类型或地址" value="${esc(state.connectionSearch)}" autocomplete="off" aria-controls="connection-table"></div>${pageLink('/connections/new',icon('plus')+' 新建连接','primary','id="new-connection"')}</div><div id="connection-table" class="table-panel"></div>`);
   on('connection-search','input',event=>{state.connectionSearch=event.target.value;state.connectionPage=1;renderConnectionTable();});
   renderConnectionTable();
 }
@@ -260,11 +259,12 @@ function renderConnections() {
 function renderConnectionTable(focusId) {
   const kinds={standalone:'单机',sentinel:'哨兵',cluster:'Redis Cluster'};
   const query=state.connectionSearch.trim().toLowerCase();
-  const connections=state.connections.filter(c=>[c.name,c.kind,kinds[c.kind],c.kind==='sentinel'?c.sentinelAddress:c.address].some(value=>String(value||'').toLowerCase().includes(query)));
+  const connections=state.connections.filter(c=>[c.name,'Redis',c.kind,kinds[c.kind],c.kind==='sentinel'?c.sentinelAddress:c.address].some(value=>String(value||'').toLowerCase().includes(query)));
   const pagination=paginate(connections,'connection');
-  const columns=[{label:'连接名称',className:'table-name'},{label:'部署类型',className:'table-kind'},{label:'连接地址'},{label:'操作',className:'table-actions'}];
+  const columns=[{label:'连接名称',className:'table-name'},{label:'数据源类型',className:'table-source-type'},{label:'部署类型',className:'table-kind'},{label:'连接地址'},{label:'操作',className:'table-actions'}];
   const rows=pagination.items.map(c=>[
     esc(c.name),
+    '<img class="datasource-icon" src="/redis-logo.svg" alt="Redis" title="Redis" width="28" height="28">',
     esc(kinds[c.kind]||c.kind),
     esc(c.kind==='sentinel'?c.sentinelAddress:c.address),
     `<div class="actions">${pageLink(connectionURL(c.id),'编辑','secondary',`data-edit-connection="${esc(c.id)}"`)}<button class="danger" data-delete-connection="${esc(c.id)}">删除</button></div>`

@@ -11,7 +11,7 @@ import (
 )
 
 func TestFrontendAssetsAreEmbedded(t *testing.T) {
-	for _, name := range []string{"static/index.html", "static/app.js", "static/toast.js", "static/select.js", "static/style.css"} {
+	for _, name := range []string{"static/index.html", "static/app.js", "static/toast.js", "static/select.js", "static/style.css", "static/redis-logo.svg"} {
 		data, err := assets.ReadFile(name)
 		if err != nil || len(data) == 0 {
 			t.Fatalf("embedded asset %s: %v", name, err)
@@ -53,7 +53,7 @@ func TestFrontendPageRoutes(t *testing.T) {
 					t.Errorf("%s: got %d, want 404", path, r.Code)
 				}
 			}
-			for _, path := range []string{"/app.js", "/style.css", "/toast.js", "/select.js", "/redisshake-logo.png"} {
+			for _, path := range []string{"/app.js", "/style.css", "/toast.js", "/select.js", "/redisshake-logo.png", "/redis-logo.svg"} {
 				r := httptest.NewRecorder()
 				handler.ServeHTTP(r, httptest.NewRequest(http.MethodGet, path, nil))
 				if r.Code != http.StatusOK || strings.HasPrefix(r.Header().Get("Content-Type"), "text/html") {

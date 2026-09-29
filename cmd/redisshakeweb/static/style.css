@@ -132,14 +132,14 @@ p { line-height: 1.55; }
 .data-table tbody th { font-weight: 600; }
 .data-table tbody tr:last-child > * { border-bottom: 0; }
 .data-table tbody tr:not(:has(.table-empty)):hover { background: var(--hover); }
-.data-table .table-name { width: 38%; }
+.data-table:has(.table-source-type) { min-width: 54rem; }
+.data-table .table-name { width: 30%; }
+.data-table .table-source-type { width: 7.5rem; text-align: center; }
+.datasource-icon { display: block; width: 28px; height: 28px; margin-inline: auto; object-fit: contain; }
 .data-table .table-kind { width: 8.5rem; }
 .data-table .table-actions { width: 10.5rem; text-align: right; }
-.data-table:has(.table-task-name) { min-width: 64rem; }
-.data-table .table-task-name { width: 24%; }
-.data-table .table-task-connection { width: 17%; }
+.data-table:has(.table-task-name) { min-width: 32rem; }
 .data-table .table-task-status { width: 6.5rem; }
-.data-table .table-task-updated { width: 12rem; }
 .data-table .table-task-actions { width: 8rem; }
 .table-actions .actions { justify-content: flex-end; flex-wrap: nowrap; gap: 8px; margin: 0; }
 .table-actions .danger { margin-left: 0; }
